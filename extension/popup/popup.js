@@ -161,6 +161,7 @@ class EchoPopup {
             'responseLength',
             'delayTimer',
             'isActive',
+            'isAutoPilot',
             'quickTone'
         ]);
 
@@ -192,6 +193,11 @@ class EchoPopup {
         // Set toggle state
         this.elements.masterToggle.checked = settings.isActive || false;
         this.updateStatusIndicator(settings.isActive || false);
+
+        // Set autopilot toggle state
+        if (this.elements.autopilotToggle) {
+            this.elements.autopilotToggle.checked = settings.isAutoPilot || false;
+        }
 
         // Set quick tone
         if (settings.quickTone) {
