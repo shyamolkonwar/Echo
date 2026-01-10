@@ -434,7 +434,17 @@ class AutoPilotDriver {
         this.addProcessingIndicator(post);
 
         try {
-            // 1. Wait before clicking comment button
+            // 1. Like the post first
+            console.log('[Echo Driver] ❤️ Liking post...');
+            await this.likePost(post);
+            await this.sleep(1000);
+
+            if (this.checkShouldStop()) {
+                this.removeProcessingIndicator(post);
+                return false;
+            }
+
+            // 2. Wait before clicking comment button
             console.log('[Echo Driver] Preparing to comment...');
             await this.humanWait('beforeCommentClick');
             if (this.checkShouldStop()) {
@@ -442,7 +452,7 @@ class AutoPilotDriver {
                 return false;
             }
 
-            // 2. Open comment box
+            // 3. Open comment box
             const boxOpened = await this.openCommentBox(post);
             if (!boxOpened) {
                 console.log('[Echo Driver] Failed to open comment box');
@@ -544,6 +554,52 @@ class AutoPilotDriver {
             this.removeProcessingIndicator(post);
             this.currentPost = null;
             this.currentEditor = null;
+            return false;
+        }
+    }
+
+    // Like a post before commenting
+    async likePost(post) {
+        try {
+            // Find the like button within the post
+            const likeButtonSelectors = [
+                'button[aria-label*="Like"]',
+                'button.react-button__trigger',
+                'button[aria-label*="React"]',
+                'button.social-actions-button[aria-pressed="false"]'
+            ];
+
+            let likeBtn = null;
+            for (const selector of likeButtonSelectors) {
+                const btn = post.querySelector(selector);
+                if (btn && btn.offsetParent !== null) {
+                    // Check if it's not already liked (aria-pressed="false" or contains "Like" text)
+                    const isPressed = btn.getAttribute('aria-pressed') === 'true';
+                    const btnText = btn.textContent?.toLowerCase() || '';
+                    if (!isPressed && btnText.includes('like')) {
+                        likeBtn = btn;
+                        break;
+                    }
+                }
+            }
+
+            if (likeBtn) {
+                // Check if already liked
+                if (likeBtn.getAttribute('aria-pressed') === 'true') {
+                    console.log('[Echo Driver] Post already liked, skipping');
+                    return true;
+                }
+
+                likeBtn.click();
+                console.log('[Echo Driver] ✅ Liked post');
+                await this.sleep(500);
+                return true;
+            } else {
+                console.log('[Echo Driver] Like button not found, skipping like');
+                return false;
+            }
+        } catch (e) {
+            console.log('[Echo Driver] Could not like post:', e);
             return false;
         }
     }
