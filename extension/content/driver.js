@@ -264,6 +264,17 @@ class AutoPilotDriver {
             const isVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.7;
             if (!isVisible) continue;
 
+            // AD EVASION CHECK - Skip promoted/ad posts
+            if (this.isAdPost(post)) {
+                this.processedPosts.add(postId); // Mark as processed so we don't check again
+                await this.logActivityLocal({
+                    authorName: 'Ad/Promoted',
+                    status: 'Skipped',
+                    comment: '[Ad detected - skipped]'
+                });
+                continue;
+            }
+
             const authorName = this.extractAuthorName(post);
             if (!authorName) continue;
 
@@ -296,6 +307,47 @@ class AutoPilotDriver {
         }
 
         return null;
+    }
+
+    // ==================== AD EVASION PROTOCOL ====================
+    isAdPost(post) {
+        // Heuristic A: "Promoted" label check (Primary)
+        const subDescription = post.querySelector('.update-components-actor__sub-description');
+        if (subDescription) {
+            const text = subDescription.textContent?.toLowerCase() || '';
+            if (text.includes('promoted')) {
+                console.log('[Echo Driver] 🚫 Ad detected: Promoted label');
+                return true;
+            }
+        }
+
+        // Heuristic B: "Suggested" content check
+        const headerText = post.querySelector('.update-components-actor__meta')?.textContent?.toLowerCase() || '';
+        if (headerText.includes('suggested')) {
+            console.log('[Echo Driver] 🚫 Ad detected: Suggested content');
+            return true;
+        }
+
+        // Heuristic C: Check for "Follow" CTA in header (ads often have Follow button)
+        const followBtn = post.querySelector('.update-components-actor__follow-button');
+        const actorDescription = post.querySelector('.update-components-actor__description');
+        if (followBtn && !actorDescription) {
+            // Has follow button but no description = likely an ad
+            console.log('[Echo Driver] 🚫 Ad detected: Follow CTA without description');
+            return true;
+        }
+
+        // Heuristic D: Check aria-label for ad indicators
+        const controlMenu = post.querySelector('.feed-shared-control-menu button');
+        if (controlMenu) {
+            const ariaLabel = controlMenu.getAttribute('aria-label')?.toLowerCase() || '';
+            if (ariaLabel.includes('ad') || ariaLabel.includes('sponsored')) {
+                console.log('[Echo Driver] 🚫 Ad detected: Control menu aria-label');
+                return true;
+            }
+        }
+
+        return false;
     }
 
     extractAuthorName(post) {
