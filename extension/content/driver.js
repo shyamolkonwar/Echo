@@ -166,7 +166,17 @@ class AutoPilotDriver {
                     console.log('[Echo Driver] 😴 Long pause after posting...');
                     await this.humanWait('afterPosting');
                 } else {
-                    // Wait after failed attempt too
+                    // Failed - make absolutely sure we clean up before next attempt
+                    console.log('[Echo Driver] ⚠️ Post failed, cleaning up...');
+
+                    // Scroll to ensure any open comment box is dismissed
+                    window.scrollBy(0, 200);
+                    await this.sleep(500);
+
+                    // Close any lingering comment boxes
+                    await this.closeCommentBox();
+
+                    // Wait after failed attempt
                     await this.humanWait('afterFail');
                 }
 
@@ -517,6 +527,8 @@ class AutoPilotDriver {
                 this.showNotification(`✅ ${visionTag}Posted on ${authorName}'s post (${postResult.method})`);
             } else {
                 this.showNotification(`⚠️ Drafted for ${authorName} (Verification Failed)`);
+                // CRITICAL: Close the comment box so it doesn't interfere with next post
+                await this.closeCommentBox();
                 await this.sleep(5000);
             }
 
@@ -527,10 +539,46 @@ class AutoPilotDriver {
 
         } catch (error) {
             console.error('[Echo Driver] Error:', error);
+            // CRITICAL: Close comment box on error too
+            await this.closeCommentBox();
             this.removeProcessingIndicator(post);
             this.currentPost = null;
             this.currentEditor = null;
             return false;
+        }
+    }
+
+    // Close any open comment box
+    async closeCommentBox() {
+        try {
+            // Try to find and click a close button
+            const closeBtn = document.querySelector('.comments-comment-box__close-button') ||
+                document.querySelector('button[aria-label*="close"]') ||
+                document.querySelector('.comments-comment-texteditor button[aria-label*="close"]');
+
+            if (closeBtn) {
+                closeBtn.click();
+                await this.sleep(500);
+                return;
+            }
+
+            // Alternative: Clear the editor and press Escape
+            const editor = document.querySelector('.ql-editor[contenteditable="true"]');
+            if (editor) {
+                editor.innerHTML = '';
+                editor.blur();
+                // Send Escape key
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 }));
+                await this.sleep(500);
+            }
+
+            // Scroll away from the comment box to close it
+            window.scrollBy(0, 100);
+            await this.sleep(300);
+            window.scrollBy(0, -100);
+
+        } catch (e) {
+            console.log('[Echo Driver] Could not close comment box:', e);
         }
     }
 
@@ -778,21 +826,25 @@ class AutoPilotDriver {
                     const btn = this.currentPost.querySelector(selector);
                     if (btn && btn.offsetParent !== null) {
                         postBtn = btn;
+                        console.log('[Echo Driver] Found Post button in current post');
                         break;
                     }
                 }
             }
 
-            // Strategy 2: Global selectors
-            for (const selector of postButtonSelectors) {
-                const candidates = document.querySelectorAll(selector);
-                for (const btn of candidates) {
-                    if (btn.offsetParent !== null && !btn.disabled) { // CSS visible and enabled
-                        postBtn = btn;
-                        break;
+            // Strategy 2: Global selectors (only if not found in post)
+            if (!postBtn) {
+                for (const selector of postButtonSelectors) {
+                    const candidates = document.querySelectorAll(selector);
+                    for (const btn of candidates) {
+                        if (btn.offsetParent !== null) { // Just check visible, we'll check disabled separately
+                            postBtn = btn;
+                            console.log('[Echo Driver] Found Post button globally');
+                            break;
+                        }
                     }
+                    if (postBtn) break;
                 }
-                if (postBtn) break;
             }
 
             // Strategy 2: Text content fallback
