@@ -521,17 +521,24 @@ class AutoPilotDriver {
             }
 
             this.removeProcessingIndicator(post);
+            this.currentPost = null;
+            this.currentEditor = null;
             return postResult.posted;
 
         } catch (error) {
             console.error('[Echo Driver] Error:', error);
             this.removeProcessingIndicator(post);
+            this.currentPost = null;
+            this.currentEditor = null;
             return false;
         }
     }
 
     // ==================== COMMENT BOX ====================
     async openCommentBox(post) {
+        // Store the current post for later reference
+        this.currentPost = post;
+
         let commentBtn = post.querySelector('button[aria-label*="omment"]') ||
             post.querySelector('button.comment-button');
 
@@ -552,20 +559,53 @@ class AutoPilotDriver {
             return false;
         }
 
+        // Scroll post into view to ensure we stay on it
+        post.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await this.sleep(500);
+
         commentBtn.click();
-        return await this.waitForEditor(4000);
+        return await this.waitForEditor(post, 4000);
     }
 
-    async waitForEditor(timeout = 4000) {
+    async waitForEditor(post, timeout = 4000) {
         const startTime = Date.now();
 
         while (Date.now() - startTime < timeout) {
             if (this.checkShouldStop()) return false;
 
-            const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
-                document.querySelector('div[contenteditable="true"][role="textbox"]');
+            // Look for editor WITHIN the post or in the comment section below it
+            let editor = post.querySelector('.ql-editor[contenteditable="true"]') ||
+                post.querySelector('div[contenteditable="true"][role="textbox"]');
+
+            // Also check for editor in sibling/child comment sections
+            if (!editor) {
+                const commentSection = post.querySelector('.comments-comment-box') ||
+                    post.querySelector('.comments-comment-texteditor');
+                if (commentSection) {
+                    editor = commentSection.querySelector('.ql-editor[contenteditable="true"]') ||
+                        commentSection.querySelector('div[contenteditable="true"][role="textbox"]');
+                }
+            }
+
+            // Fallback: check if ANY visible editor is near this post
+            if (!editor) {
+                const allEditors = document.querySelectorAll('.ql-editor[contenteditable="true"], div[contenteditable="true"][role="textbox"]');
+                for (const ed of allEditors) {
+                    if (ed.offsetParent !== null) {
+                        // Check if this editor is within the post's bounding area
+                        const postRect = post.getBoundingClientRect();
+                        const edRect = ed.getBoundingClientRect();
+                        // Editor should be below or within the post
+                        if (edRect.top >= postRect.top - 100 && edRect.top <= postRect.bottom + 300) {
+                            editor = ed;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (editor && editor.offsetParent !== null) {
+                this.currentEditor = editor; // Store for later use
                 return true;
             }
             await this.sleep(100);
@@ -575,10 +615,38 @@ class AutoPilotDriver {
 
     // Type comment slowly with enhanced event dispatching
     async typeCommentSlowly(post, comment) {
-        const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
-            document.querySelector('div[contenteditable="true"][role="textbox"]');
+        // Use the stored editor from waitForEditor, or find it scoped to post
+        let editor = this.currentEditor;
 
-        if (!editor) return;
+        // Fallback: find editor near the post
+        if (!editor || editor.offsetParent === null) {
+            editor = post.querySelector('.ql-editor[contenteditable="true"]') ||
+                post.querySelector('div[contenteditable="true"][role="textbox"]');
+        }
+
+        // Last resort: find any visible editor near this post's position
+        if (!editor) {
+            const postRect = post.getBoundingClientRect();
+            const allEditors = document.querySelectorAll('.ql-editor[contenteditable="true"], div[contenteditable="true"][role="textbox"]');
+            for (const ed of allEditors) {
+                if (ed.offsetParent !== null) {
+                    const edRect = ed.getBoundingClientRect();
+                    if (edRect.top >= postRect.top - 100 && edRect.top <= postRect.bottom + 300) {
+                        editor = ed;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!editor) {
+            console.log('[Echo Driver] No editor found for typing');
+            return;
+        }
+
+        // Keep post in view
+        post.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await this.sleep(300);
 
         editor.focus();
         await this.sleep(300);
@@ -681,6 +749,12 @@ class AutoPilotDriver {
     async clickPostButton(commentText) {
         console.log('[Echo Driver] Looking for Post button...');
 
+        // Keep current post in view
+        if (this.currentPost) {
+            this.currentPost.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await this.sleep(300);
+        }
+
         // Expanded selectors including Art Deco (LinkedIn standard)
         const postButtonSelectors = [
             'button.comments-comment-box__submit-button',
@@ -698,7 +772,18 @@ class AutoPilotDriver {
 
             let postBtn = null;
 
-            // Strategy 1: Selectors
+            // Strategy 1: Look within the current post first
+            if (this.currentPost) {
+                for (const selector of postButtonSelectors) {
+                    const btn = this.currentPost.querySelector(selector);
+                    if (btn && btn.offsetParent !== null) {
+                        postBtn = btn;
+                        break;
+                    }
+                }
+            }
+
+            // Strategy 2: Global selectors
             for (const selector of postButtonSelectors) {
                 const candidates = document.querySelectorAll(selector);
                 for (const btn of candidates) {
