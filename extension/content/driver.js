@@ -253,19 +253,29 @@ class AutoPilotDriver {
     // ==================== TARGET SCANNING ====================
     async scanForTargets() {
         const posts = document.querySelectorAll('div.feed-shared-update-v2');
+        console.log(`[Echo Driver] Scanning ${posts.length} posts for targets...`);
 
         for (const post of posts) {
             if (this.checkShouldStop()) return null;
 
             const postId = post.getAttribute('data-urn') || this.generatePostId(post);
-            if (this.processedPosts.has(postId)) continue;
+            if (this.processedPosts.has(postId)) {
+                continue;
+            }
 
             const rect = post.getBoundingClientRect();
             const isVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.7;
-            if (!isVisible) continue;
+            if (!isVisible) {
+                continue;
+            }
 
             const authorName = this.extractAuthorName(post);
-            if (!authorName) continue;
+            if (!authorName) {
+                console.log('[Echo Driver] Could not extract author name, skipping');
+                continue;
+            }
+
+            console.log(`[Echo Driver] Found visible post by: ${authorName}`);
 
             // Check watched creators
             const matchedCreator = this.watchedCreators.find(creator =>
@@ -274,6 +284,7 @@ class AutoPilotDriver {
             );
 
             if (matchedCreator) {
+                console.log(`[Echo Driver] ⭐ Matched watched creator: ${matchedCreator.name}`);
                 return {
                     element: post,
                     postId,
@@ -283,8 +294,9 @@ class AutoPilotDriver {
                 };
             }
 
-            // Random chance for non-watched
-            if (Math.random() < this.randomCommentChance) {
+            // Higher chance for non-watched (50% for testing, was 8%)
+            if (Math.random() < 0.5) {
+                console.log(`[Echo Driver] 🎲 Random selection: ${authorName}`);
                 return {
                     element: post,
                     postId,
@@ -292,9 +304,12 @@ class AutoPilotDriver {
                     isWatchedCreator: false,
                     priority: 'Random'
                 };
+            } else {
+                console.log(`[Echo Driver] Skipped ${authorName} (random chance)`);
             }
         }
 
+        console.log('[Echo Driver] No targets found in this scan');
         return null;
     }
 
