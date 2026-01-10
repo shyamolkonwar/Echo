@@ -40,7 +40,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-// Handle comment generation
 async function handleGenerateComment(message, sendResponse) {
     console.log('[Echo Background] Handling comment generation request');
     console.log('[Echo Background] Post data:', message.postData);
@@ -64,12 +63,24 @@ async function handleGenerateComment(message, sendResponse) {
         // Build the prompt
         const prompt = buildPrompt(postData, quickTone, settings);
 
-        // Call the appropriate API
+        // Call the appropriate API (vision or text)
         let comment;
+        const hasImage = postData.hasImage && postData.imageData;
+
         if (settings.apiProvider === 'gemini') {
-            comment = await callGeminiAPI(settings.apiKey, prompt);
+            if (hasImage) {
+                console.log('[Echo Background] Using Gemini Vision API');
+                comment = await callGeminiVisionAPI(settings.apiKey, prompt, postData.imageData);
+            } else {
+                comment = await callGeminiAPI(settings.apiKey, prompt);
+            }
         } else {
-            comment = await callOpenAIAPI(settings.apiKey, prompt, settings.responseLength);
+            if (hasImage) {
+                console.log('[Echo Background] Using OpenAI Vision API');
+                comment = await callOpenAIVisionAPI(settings.apiKey, prompt, postData.imageData, settings.responseLength);
+            } else {
+                comment = await callOpenAIAPI(settings.apiKey, prompt, settings.responseLength);
+            }
         }
 
         sendResponse({ comment });
@@ -179,7 +190,88 @@ async function callGeminiAPI(apiKey, prompt) {
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 }
 
-// Log activity to Supabase
+// Call OpenAI Vision API (gpt-4o-mini with image)
+async function callOpenAIVisionAPI(apiKey, prompt, imageData, responseLength = 2) {
+    const maxTokens = responseLength === 1 ? 30 : responseLength === 3 ? 80 : 50;
+
+    const response = await fetch(API_CONFIG.openai.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: prompt.systemPrompt + ' Reference specific visual details from the image.'
+                },
+                {
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt.userPrompt },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:image/jpeg;base64,${imageData}`,
+                                detail: 'low' // Faster and cheaper
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens: maxTokens,
+            temperature: 0.8
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || `API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || '';
+}
+
+// Call Gemini Vision API (gemini-1.5-flash with image)
+async function callGeminiVisionAPI(apiKey, prompt, imageData) {
+    const url = `${API_CONFIG.gemini.url}?key=${apiKey}`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contents: [{
+                parts: [
+                    { text: prompt.systemPrompt + '\n\n' + prompt.userPrompt + '\n\nReference specific visual details from the image.' },
+                    {
+                        inline_data: {
+                            mime_type: 'image/jpeg',
+                            data: imageData
+                        }
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.8,
+                maxOutputTokens: 60
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || `API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
 // (Function removed: No Supabase logging)
 
 // (Function removed: No Supabase sync)

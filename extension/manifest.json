@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Echo - LinkedIn Ghost Writer",
-    "version": "4.0.0",
-    "description": "Your voice, echoed. AI-powered LinkedIn comment assistant with slow, human-like autonomous operation.",
+    "version": "5.0.0",
+    "description": "Your voice, echoed. AI-powered LinkedIn comment assistant with vision support and autonomous verification.",
     "permissions": [
         "activeTab",
         "storage",
@@ -36,6 +36,7 @@
                 "*://www.linkedin.com/*"
             ],
             "js": [
+                "lib/html2canvas.min.js",
                 "content/driver.js",
                 "content/content.js"
             ],

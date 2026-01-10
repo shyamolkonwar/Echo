@@ -331,6 +331,81 @@ class AutoPilotDriver {
         return `echo-auto-${index}-${Date.now()}`;
     }
 
+    // ==================== MEDIA EXTRACTION (VISION) ====================
+    async extractMediaFromPost(post) {
+        console.log('[Echo Driver] Checking for media in post...');
+
+        // Strategy 1: Single image
+        const singleImage = post.querySelector('img.feed-shared-image__image');
+        if (singleImage && singleImage.src) {
+            console.log('[Echo Driver] Found single image');
+            return await this.captureImageAsBase64(singleImage, 'single-image');
+        }
+
+        // Strategy 2: Carousel (first slide only - MVP)
+        const carouselImage = post.querySelector('.feed-shared-carousel__content img');
+        if (carouselImage && carouselImage.src) {
+            console.log('[Echo Driver] Found carousel image (first slide)');
+            return await this.captureImageAsBase64(carouselImage, 'carousel');
+        }
+
+        // No supported media found
+        console.log('[Echo Driver] No supported media found');
+        return { hasMedia: false, mediaData: null, mediaType: null };
+    }
+
+    async captureImageAsBase64(imgElement, mediaType) {
+        try {
+            // Check if html2canvas is available
+            if (typeof html2canvas === 'undefined') {
+                console.warn('[Echo Driver] html2canvas not loaded');
+                return { hasMedia: false, mediaData: null, mediaType: null };
+            }
+
+            // Create a container for the image
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.width = '800px'; // Max width for API
+            container.style.height = 'auto';
+
+            const img = imgElement.cloneNode(true);
+            img.style.maxWidth = '800px';
+            img.style.height = 'auto';
+            container.appendChild(img);
+            document.body.appendChild(container);
+
+            // Wait for image to load
+            await new Promise(resolve => {
+                if (img.complete) resolve();
+                else img.onload = resolve;
+            });
+
+            // Capture with html2canvas
+            const canvas = await html2canvas(container, {
+                backgroundColor: null,
+                scale: 1,
+                logging: false
+            });
+
+            // Clean up
+            document.body.removeChild(container);
+
+            // Convert to base64
+            const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+            console.log('[Echo Driver] Media captured successfully');
+            return {
+                hasMedia: true,
+                mediaData: base64Data,
+                mediaType: mediaType
+            };
+        } catch (error) {
+            console.error('[Echo Driver] Media capture failed:', error);
+            return { hasMedia: false, mediaData: null, mediaType: null };
+        }
+    }
+
     // ==================== POST PROCESSING ====================
     async processPost(target) {
         const { element: post, postId, authorName, isWatchedCreator, priority } = target;
@@ -373,13 +448,22 @@ class AutoPilotDriver {
                 return false;
             }
 
-            // 4. Generate comment
+            // 4. Extract media (vision support)
+            console.log('[Echo Driver] 📸 Checking for media...');
+            const mediaData = await this.extractMediaFromPost(post);
+
+            // 5. Generate comment
             const { quickTone } = await chrome.storage.local.get('quickTone');
             console.log('[Echo Driver] 🤖 Generating comment...');
 
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
-                postData: { authorName, content },
+                postData: {
+                    authorName,
+                    content,
+                    hasImage: mediaData.hasMedia,
+                    imageData: mediaData.mediaData
+                },
                 quickTone: quickTone || 'professional'
             });
 
@@ -412,229 +496,307 @@ class AutoPilotDriver {
                 return false;
             }
 
-            // 7. Click Post button
+            // 7. Click Post button with verification
             console.log('[Echo Driver] 📤 Clicking Post...');
-            const posted = await this.clickPostButton();
+            const postResult = await this.clickPostButton(response.comment);
 
-            // 8. Log locally
+            // 8. Log locally with vision and verification metadata
             await this.logActivityLocal({
                 postPreview: content.substring(0, 50),
                 authorName,
                 comment: response.comment,
                 isWatchedCreator,
-                status: posted ? 'Posted' : 'Drafted'
+                status: postResult.posted ? 'Posted' : 'Drafted',
+                hasImage: mediaData.hasMedia,
+                verified: postResult.verified,
+                verificationMethod: postResult.method
             });
 
-            if (posted) {
-                this.showNotification(`✅ Posted on ${authorName}'s post`);
+            if (postResult.posted && postResult.verified) {
+                const visionTag = mediaData.hasMedia ? '🖼️ ' : '';
+                this.showNotification(`✅ ${visionTag}Posted on ${authorName}'s post (${postResult.method})`);
             } else {
-                this.showNotification(`⚠️ Drafted for ${authorName} (Click Check Failed)`);
-                // Wait longer on fail so user can intervene manually
+                this.showNotification(`⚠️ Drafted for ${authorName} (Verification Failed)`);
                 await this.sleep(5000);
             }
 
             this.removeProcessingIndicator(post);
-            return posted;
+            return postResult.posted;
 
         } catch (error) {
-            console.error('[Echo Driver] Error:', error);
-            this.removeProcessingIndicator(post);
-            return false;
+            // Wait longer on fail so user can intervene manually
+            await this.sleep(5000);
         }
+
+        this.removeProcessingIndicator(post);
+        return posted;
+
+    } catch(error) {
+        console.error('[Echo Driver] Error:', error);
+        this.removeProcessingIndicator(post);
+        return false;
     }
+}
 
     // ==================== COMMENT BOX ====================
     async openCommentBox(post) {
-        let commentBtn = post.querySelector('button[aria-label*="omment"]') ||
-            post.querySelector('button.comment-button');
+    let commentBtn = post.querySelector('button[aria-label*="omment"]') ||
+        post.querySelector('button.comment-button');
 
-        if (!commentBtn) {
-            const buttons = post.querySelectorAll('button');
-            for (const btn of buttons) {
-                const label = btn.getAttribute('aria-label')?.toLowerCase() || '';
-                const text = btn.textContent?.toLowerCase() || '';
-                if (label.includes('comment') || text.includes('comment')) {
-                    commentBtn = btn;
+    if (!commentBtn) {
+        const buttons = post.querySelectorAll('button');
+        for (const btn of buttons) {
+            const label = btn.getAttribute('aria-label')?.toLowerCase() || '';
+            const text = btn.textContent?.toLowerCase() || '';
+            if (label.includes('comment') || text.includes('comment')) {
+                commentBtn = btn;
+                break;
+            }
+        }
+    }
+
+    if (!commentBtn) {
+        console.log('[Echo Driver] Comment button not found');
+        return false;
+    }
+
+    commentBtn.click();
+    return await this.waitForEditor(4000);
+}
+
+    async waitForEditor(timeout = 4000) {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+        if (this.checkShouldStop()) return false;
+
+        const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
+            document.querySelector('div[contenteditable="true"][role="textbox"]');
+
+        if (editor && editor.offsetParent !== null) {
+            return true;
+        }
+        await this.sleep(100);
+    }
+    return false;
+}
+
+    // Type comment slowly with enhanced event dispatching
+    async typeCommentSlowly(post, comment) {
+    const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
+        document.querySelector('div[contenteditable="true"][role="textbox"]');
+
+    if (!editor) return;
+
+    editor.focus();
+    await this.sleep(300);
+
+    // Clear placeholder
+    if (editor.innerHTML === '<p><br></p>' || !editor.innerText.trim()) {
+        editor.innerHTML = '';
+    }
+
+    // Type character by character with delays
+    for (let i = 0; i < comment.length; i++) {
+        if (this.checkShouldStop()) break;
+
+        const char = comment[i];
+        document.execCommand('insertText', false, char);
+
+        // Random typing delay
+        await this.sleep(this.random(30, 80));
+
+        // Occasional longer pause (thinking)
+        if (Math.random() < 0.05) {
+            await this.sleep(this.random(200, 400));
+        }
+    }
+
+    // DISPATCH EVENTS - Critical for React/LinkedIn to enable Post button
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    editor.dispatchEvent(new Event('change', { bubbles: true }));
+    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+
+    // Small pause after typing
+    await this.sleep(1000);
+
+    // Visual feedback
+    const form = document.querySelector('.comments-comment-box');
+    if (form) {
+        form.style.border = '3px solid #10B981';
+        form.style.borderRadius = '8px';
+        setTimeout(() => { form.style.border = ''; }, 5000);
+    }
+}
+
+    // ==================== VERIFICATION MODULE ====================
+    async waitForVerification(commentText, timeout = 10000) {
+    console.log('[Echo Driver] 🔍 Starting verification...');
+    const startTime = Date.now();
+
+    // Strategy A: Toast Watcher (Primary - Fastest)
+    const toastPromise = new Promise((resolve) => {
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === 1) {
+                        const toast = node.querySelector ? node.querySelector('div.artdeco-toast-item') : null;
+                        if (toast || node.classList?.contains('artdeco-toast-item')) {
+                            const text = (toast || node).textContent?.toLowerCase() || '';
+                            if (text.includes('comment') || text.includes('posted')) {
+                                console.log('[Echo Driver] ✅ Toast detected!');
+                                observer.disconnect();
+                                resolve({ verified: true, method: 'toast' });
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // Cleanup after timeout
+        setTimeout(() => {
+            observer.disconnect();
+            resolve({ verified: false, method: 'none' });
+        }, 5000);
+    });
+
+    // Wait for toast
+    const toastResult = await toastPromise;
+    if (toastResult.verified) {
+        return toastResult;
+    }
+
+    // Strategy B: DOM Check (Fallback)
+    console.log('[Echo Driver] Toast not found, trying DOM check...');
+    await this.sleep(2000);
+
+    const commentsList = document.querySelector('.comments-comments-list');
+    if (commentsList) {
+        const comments = commentsList.querySelectorAll('.comments-comment-item');
+        for (const comment of comments) {
+            const commentBody = comment.textContent || '';
+            const authorElement = comment.querySelector('.comments-post-meta__name');
+            const isYou = authorElement?.textContent?.toLowerCase().includes('you');
+
+            if (commentBody.includes(commentText.substring(0, 30)) && isYou) {
+                console.log('[Echo Driver] ✅ Comment found in DOM!');
+                return { verified: true, method: 'dom' };
+            }
+        }
+    }
+
+    // No verification found
+    const elapsed = Date.now() - startTime;
+    console.log(`[Echo Driver] ⚠️ Verification failed after ${elapsed}ms`);
+    return { verified: false, method: 'none' };
+}
+
+    // ==================== AUTO-POST ====================
+    async clickPostButton(commentText) {
+    console.log('[Echo Driver] Looking for Post button...');
+
+    // Expanded selectors including Art Deco (LinkedIn standard)
+    const postButtonSelectors = [
+        'button.comments-comment-box__submit-button',
+        'button[data-control-name="submit_comment"]',
+        'button[type="submit"][class*="comment"]',
+        '.comments-comment-box button[type="submit"]',
+        '.comments-comment-texteditor button[type="submit"]',
+        'button.artdeco-button--primary',
+        'div.comments-comment-box__button-group button'
+    ];
+
+    // Retry loop - 5 attempts
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        if (this.checkShouldStop()) return { posted: false, verified: false, method: 'none' };
+
+        let postBtn = null;
+
+        // Strategy 1: Selectors
+        for (const selector of postButtonSelectors) {
+            const candidates = document.querySelectorAll(selector);
+            for (const btn of candidates) {
+                if (btn.offsetParent !== null && !btn.disabled) { // CSS visible and enabled
+                    postBtn = btn;
+                    break;
+                }
+            }
+            if (postBtn) break;
+        }
+
+        // Strategy 2: Text content fallback
+        if (!postBtn) {
+            const allButtons = document.querySelectorAll('.comments-comment-box button, .comments-comment-texteditor button, button.artdeco-button');
+            for (const btn of allButtons) {
+                const text = btn.textContent?.toLowerCase().trim() || '';
+                if ((text === 'post' || text === 'comment') && !btn.disabled && btn.offsetParent !== null) {
+                    postBtn = btn;
+                    console.log('[Echo Driver] Found Post button via text:', text);
                     break;
                 }
             }
         }
 
-        if (!commentBtn) {
-            console.log('[Echo Driver] Comment button not found');
-            return false;
-        }
+        if (postBtn && !postBtn.disabled) {
+            console.log(`[Echo Driver] 📤 Clicking Post button (Attempt ${attempt})...`);
+            postBtn.click();
 
-        commentBtn.click();
-        return await this.waitForEditor(4000);
-    }
+            // Wait and verify with verification module
+            const verificationResult = await this.waitForVerification(commentText);
 
-    async waitForEditor(timeout = 4000) {
-        const startTime = Date.now();
-
-        while (Date.now() - startTime < timeout) {
-            if (this.checkShouldStop()) return false;
-
-            const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
-                document.querySelector('div[contenteditable="true"][role="textbox"]');
-
-            if (editor && editor.offsetParent !== null) {
-                return true;
-            }
-            await this.sleep(100);
-        }
-        return false;
-    }
-
-    // Type comment slowly with enhanced event dispatching
-    async typeCommentSlowly(post, comment) {
-        const editor = document.querySelector('.ql-editor[contenteditable="true"]') ||
-            document.querySelector('div[contenteditable="true"][role="textbox"]');
-
-        if (!editor) return;
-
-        editor.focus();
-        await this.sleep(300);
-
-        // Clear placeholder
-        if (editor.innerHTML === '<p><br></p>' || !editor.innerText.trim()) {
-            editor.innerHTML = '';
-        }
-
-        // Type character by character with delays
-        for (let i = 0; i < comment.length; i++) {
-            if (this.checkShouldStop()) break;
-
-            const char = comment[i];
-            document.execCommand('insertText', false, char);
-
-            // Random typing delay
-            await this.sleep(this.random(30, 80));
-
-            // Occasional longer pause (thinking)
-            if (Math.random() < 0.05) {
-                await this.sleep(this.random(200, 400));
-            }
-        }
-
-        // DISPATCH EVENTS - Critical for React/LinkedIn to enable Post button
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        editor.dispatchEvent(new Event('change', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-
-        // Small pause after typing
-        await this.sleep(1000);
-
-        // Visual feedback
-        const form = document.querySelector('.comments-comment-box');
-        if (form) {
-            form.style.border = '3px solid #10B981';
-            form.style.borderRadius = '8px';
-            setTimeout(() => { form.style.border = ''; }, 5000);
-        }
-    }
-
-    // ==================== AUTO-POST ====================
-    async clickPostButton() {
-        console.log('[Echo Driver] Looking for Post button...');
-
-        // Expanded selectors including Art Deco (LinkedIn standard)
-        const postButtonSelectors = [
-            'button.comments-comment-box__submit-button',
-            'button[data-control-name="submit_comment"]',
-            'button[type="submit"][class*="comment"]',
-            '.comments-comment-box button[type="submit"]',
-            '.comments-comment-texteditor button[type="submit"]',
-            'button.artdeco-button--primary',
-            'div.comments-comment-box__button-group button'
-        ];
-
-        // Retry loop - 5 attempts
-        for (let attempt = 1; attempt <= 5; attempt++) {
-            if (this.checkShouldStop()) return false;
-
-            let postBtn = null;
-
-            // Strategy 1: Selectors
-            for (const selector of postButtonSelectors) {
-                const candidates = document.querySelectorAll(selector);
-                for (const btn of candidates) {
-                    if (btn.offsetParent !== null && !btn.disabled) { // CSS visible and enabled
-                        postBtn = btn;
-                        break;
-                    }
-                }
-                if (postBtn) break;
-            }
-
-            // Strategy 2: Text content fallback
-            if (!postBtn) {
-                const allButtons = document.querySelectorAll('.comments-comment-box button, .comments-comment-texteditor button, button.artdeco-button');
-                for (const btn of allButtons) {
-                    const text = btn.textContent?.toLowerCase().trim() || '';
-                    if ((text === 'post' || text === 'comment') && !btn.disabled && btn.offsetParent !== null) {
-                        postBtn = btn;
-                        console.log('[Echo Driver] Found Post button via text:', text);
-                        break;
-                    }
-                }
-            }
-
-            if (postBtn && !postBtn.disabled) {
-                console.log(`[Echo Driver] 📤 Clicking Post button (Attempt ${attempt})...`);
-                postBtn.click();
-
-                // Wait to verify success
-                await this.sleep(2000);
-
-                // Check if comment box is gone or clear
-                const editor = document.querySelector('.ql-editor[contenteditable="true"]');
-                if (!editor || editor.innerText.trim().length === 0) {
-                    console.log('[Echo Driver] ✅ Post confirmed success!');
-                    return true;
-                } else {
-                    console.log('[Echo Driver] ⚠️ Clicked but comment box still full. Retrying...');
-                }
+            if (verificationResult.verified) {
+                console.log('[Echo Driver] ✅ Post verified via:', verificationResult.method);
+                return { posted: true, ...verificationResult };
             } else {
-                console.log(`[Echo Driver] Post button not ready/found (Attempt ${attempt}/5)... waiting`);
+                console.log('[Echo Driver] ⚠️ Verification failed, retrying...');
             }
-
-            // Wait before retry
-            await this.sleep(1500);
+        } else {
+            console.log(`[Echo Driver] Post button not ready/found (Attempt ${attempt}/5)... waiting`);
         }
 
-        console.log('[Echo Driver] ❌ Failed to post after all attempts');
-        return false;
+        // Wait before retry
+        await this.sleep(1500);
     }
+
+    console.log('[Echo Driver] ❌ Failed to post after all attempts');
+    return { posted: false, verified: false, method: 'none' };
+}
 
     // ==================== LOCAL LOGGING (NO SUPABASE) ====================
     async logActivityLocal(data) {
-        const { activityLog } = await chrome.storage.local.get('activityLog');
-        const log = activityLog || [];
-        log.unshift({
-            text: `${data.status}: <strong>${data.authorName}</strong>`,
-            authorName: data.authorName,
-            comment: data.comment,
-            status: data.status,
-            timestamp: Date.now()
-        });
-        await chrome.storage.local.set({ activityLog: log.slice(0, 100) });
-    }
+    const { activityLog } = await chrome.storage.local.get('activityLog');
+    const log = activityLog || [];
+    log.unshift({
+        text: `${data.status}: <strong>${data.authorName}</strong>`,
+        authorName: data.authorName,
+        comment: data.comment,
+        status: data.status,
+        timestamp: Date.now()
+    });
+    await chrome.storage.local.set({ activityLog: log.slice(0, 100) });
+}
 
-    // ==================== UI HELPERS ====================
-    addProcessingIndicator(post) {
-        if (post.querySelector('.echo-auto-indicator')) return;
+// ==================== UI HELPERS ====================
+addProcessingIndicator(post) {
+    if (post.querySelector('.echo-auto-indicator')) return;
 
-        const indicator = document.createElement('div');
-        indicator.className = 'echo-auto-indicator';
-        indicator.innerHTML = `
+    const indicator = document.createElement('div');
+    indicator.className = 'echo-auto-indicator';
+    indicator.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div class="echo-spinner"></div>
                 <span>Processing...</span>
             </div>
         `;
-        indicator.style.cssText = `
+    indicator.style.cssText = `
             position: absolute;
             top: 12px;
             right: 12px;
@@ -649,10 +811,10 @@ class AutoPilotDriver {
             box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
         `;
 
-        if (!document.getElementById('echo-spinner-styles')) {
-            const style = document.createElement('style');
-            style.id = 'echo-spinner-styles';
-            style.textContent = `
+    if (!document.getElementById('echo-spinner-styles')) {
+        const style = document.createElement('style');
+        style.id = 'echo-spinner-styles';
+        style.textContent = `
                 .echo-spinner {
                     width: 14px;
                     height: 14px;
@@ -665,25 +827,25 @@ class AutoPilotDriver {
                     to { transform: rotate(360deg); }
                 }
             `;
-            document.head.appendChild(style);
-        }
-
-        post.style.position = 'relative';
-        post.appendChild(indicator);
+        document.head.appendChild(style);
     }
 
-    removeProcessingIndicator(post) {
-        const indicator = post.querySelector('.echo-auto-indicator');
-        if (indicator) indicator.remove();
-    }
+    post.style.position = 'relative';
+    post.appendChild(indicator);
+}
 
-    showNotification(message) {
-        document.querySelectorAll('.echo-driver-notification').forEach(el => el.remove());
+removeProcessingIndicator(post) {
+    const indicator = post.querySelector('.echo-auto-indicator');
+    if (indicator) indicator.remove();
+}
 
-        const notification = document.createElement('div');
-        notification.className = 'echo-driver-notification';
-        notification.textContent = message;
-        notification.style.cssText = `
+showNotification(message) {
+    document.querySelectorAll('.echo-driver-notification').forEach(el => el.remove());
+
+    const notification = document.createElement('div');
+    notification.className = 'echo-driver-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
             position: fixed;
             bottom: 24px;
             right: 24px;
@@ -699,30 +861,30 @@ class AutoPilotDriver {
             animation: slideInUp 0.4s ease;
         `;
 
-        if (!document.getElementById('echo-notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'echo-notification-styles';
-            style.textContent = `
+    if (!document.getElementById('echo-notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'echo-notification-styles';
+        style.textContent = `
                 @keyframes slideInUp {
                     from { opacity: 0; transform: translateY(30px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
             `;
-            document.head.appendChild(style);
-        }
-
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 4000);
+        document.head.appendChild(style);
     }
 
-    // ==================== UTILITIES ====================
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 4000);
+}
 
-    random(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+// ==================== UTILITIES ====================
+sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+random(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 }
 
 // Export
