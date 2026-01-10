@@ -1,0 +1,61 @@
+{
+    "manifest_version": 3,
+    "name": "Echo - LinkedIn Ghost Writer",
+    "version": "4.0.0",
+    "description": "Your voice, echoed. AI-powered LinkedIn comment assistant with slow, human-like autonomous operation.",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting",
+        "alarms",
+        "tabs"
+    ],
+    "host_permissions": [
+        "*://www.linkedin.com/*"
+    ],
+    "action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://www.linkedin.com/*"
+            ],
+            "js": [
+                "content/driver.js",
+                "content/content.js"
+            ],
+            "css": [
+                "content/content.css"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "dashboard/dashboard.html",
+                "dashboard/dashboard.css",
+                "dashboard/dashboard.js",
+                "lib/*"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
+}

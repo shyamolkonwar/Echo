@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo - LinkedIn Ghost Writer</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div id="echo-popup">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    <path d="M8 12h.01M12 12h.01M16 12h.01" stroke-linecap="round" />
+                </svg>
+                <span class="logo-text">Echo</span>
+            </div>
+            <button id="settings-btn" class="icon-btn" title="Settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Main View -->
+        <main id="main-view" class="view active">
+            <!-- Status Card -->
+            <div class="status-card">
+                <div class="status-indicator" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">PAUSED</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="master-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <!-- Auto-Pilot Card -->
+            <div class="status-card autopilot-card">
+                <div class="status-indicator" id="autopilot-indicator">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        style="width: 16px; height: 16px; margin-right: 8px;">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                    <span class="status-text">Auto-Pilot</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autopilot-toggle">
+                    <span class="toggle-slider autopilot-slider"></span>
+                </label>
+            </div>
+
+            <!-- Dashboard Button -->
+            <button id="open-dashboard" class="dashboard-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 20V10M12 20V4M6 20v-6" />
+                </svg>
+                Open Dashboard
+            </button>
+
+            <!-- Quick Tone Selector -->
+            <div class="tone-selector">
+                <span class="section-label">Quick Tone</span>
+                <div class="tone-options">
+                    <label class="tone-option">
+                        <input type="radio" name="quick-tone" value="professional" checked>
+                        <span class="tone-label">Professional</span>
+                    </label>
+                    <label class="tone-option">
+                        <input type="radio" name="quick-tone" value="casual">
+                        <span class="tone-label">Casual</span>
+                    </label>
+                    <label class="tone-option">
+                        <input type="radio" name="quick-tone" value="supportive">
+                        <span class="tone-label">Supportive</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="activity-section">
+                <span class="section-label">Recent Activity</span>
+                <div class="activity-log" id="activity-log">
+                    <div class="activity-empty">No activity yet. Enable Echo and browse LinkedIn.</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings View -->
+        <main id="settings-view" class="view">
+            <div class="settings-header">
+                <button id="back-btn" class="icon-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h2>Settings</h2>
+            </div>
+
+            <div class="settings-form">
+                <!-- API Key -->
+                <div class="form-group">
+                    <label for="api-key">API Key (OpenAI / Gemini)</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+                        <button id="toggle-key-visibility" class="icon-btn small" type="button">
+                            <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- API Provider -->
+                <div class="form-group">
+                    <label>API Provider</label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="api-provider" value="openai" checked>
+                            <span>OpenAI</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="api-provider" value="gemini">
+                            <span>Gemini</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Voice DNA -->
+                <div class="form-group">
+                    <label for="voice-dna">Your Voice DNA</label>
+                    <p class="helper-text">Describe your writing style or paste examples of your best comments.</p>
+                    <textarea id="voice-dna" rows="4"
+                        placeholder="I am sarcastic, tech-savvy, and use short sentences. I hate corporate jargon."></textarea>
+                </div>
+
+                <!-- Response Length -->
+                <div class="form-group">
+                    <label>Response Length</label>
+                    <div class="slider-wrapper">
+                        <span class="slider-label">Short</span>
+                        <input type="range" id="response-length" min="1" max="3" value="2">
+                        <span class="slider-label">Long</span>
+                    </div>
+                </div>
+
+                <!-- Delay Timer -->
+                <div class="form-group">
+                    <label>Typing Speed</label>
+                    <div class="slider-wrapper">
+                        <span class="slider-label">Fast</span>
+                        <input type="range" id="delay-timer" min="1" max="3" value="2">
+                        <span class="slider-label">Human</span>
+                    </div>
+                </div>
+
+                <button id="save-settings" class="btn-primary">Save Settings</button>
+            </div>
+        </main>
+
+        <!-- Onboarding View -->
+        <main id="onboarding-view" class="view">
+            <div class="onboarding-content">
+                <div class="onboarding-step" data-step="1">
+                    <div class="onboarding-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path
+                                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                        </svg>
+                    </div>
+                    <h2>Welcome to Echo</h2>
+                    <p>Let's teach Echo your voice in 2 simple steps.</p>
+                    <button class="btn-primary" data-next="2">Get Started</button>
+                </div>
+
+                <div class="onboarding-step" data-step="2" style="display: none;">
+                    <h3>Step 1: Enter your API Key</h3>
+                    <p class="helper-text">You'll need an OpenAI or Gemini API key to generate comments.</p>
+                    <div class="form-group">
+                        <select id="onboard-provider">
+                            <option value="openai">OpenAI</option>
+                            <option value="gemini">Gemini</option>
+                        </select>
+                        <input type="password" id="onboard-api-key" placeholder="Paste your API key here...">
+                    </div>
+                    <button class="btn-primary" data-next="3">Continue</button>
+                </div>
+
+                <div class="onboarding-step" data-step="3" style="display: none;">
+                    <h3>Step 2: Define your voice</h3>
+                    <p class="helper-text">How do you usually write? Be specific!</p>
+                    <textarea id="onboard-voice" rows="4"
+                        placeholder="Example: I write short, punchy comments. I use humor and avoid buzzwords. I always add value to the conversation."></textarea>
+                    <button class="btn-primary" id="complete-onboarding">Start Using Echo</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

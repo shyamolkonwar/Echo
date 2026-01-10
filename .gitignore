@@ -1,0 +1,112 @@
+# Chrome Extension - LinkedIn Automation
+# .gitignore
+
+# ==================== OS Files ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ==================== IDE / Editor ====================
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ==================== Node.js (if used for tooling) ====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+docs/
+
+# ==================== Build / Distribution ====================
+# Extension builds
+dist/
+build/
+*.zip
+*.crx
+*.pem
+
+# Compiled files
+*.min.js.map
+*.min.css.map
+
+# ==================== Secrets & Config ====================
+# API Keys and sensitive data
+.env
+.env.local
+.env.*.local
+secrets.json
+config.local.json
+
+# User-specific extension data
+extension/user-data/
+*.key
+
+# ==================== Logs ====================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== Temporary Files ====================
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# ==================== Testing ====================
+coverage/
+.nyc_output/
+test-results/
+
+# ==================== Documentation (optional) ====================
+# Uncomment if you don't want to track certain docs
+# docs/notes/
+# *.draft.md
+
+# ==================== Project Specific ====================
+# Backup files
+extension/backup/
+*.backup.js
+*.backup.html
+*.backup.css
+
+# Old versions
+old/
+archive/
+deprecated/
+
+# Development notes (if personal)
+TODO.md
+NOTES.md
+.scratch/

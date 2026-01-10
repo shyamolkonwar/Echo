@@ -1,0 +1,206 @@
+/* Echo Chrome Extension - Content Script Styles */
+/* All styles scoped to avoid conflicts with LinkedIn */
+
+/* Root container - prevents style leakage */
+#echo-extension-root {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+}
+
+#echo-extension-root * {
+    pointer-events: auto;
+}
+
+/* Watching indicator on posts */
+.echo-watching {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #0A66C2 0%, #0077B5 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: echo-pulse 2s infinite;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(10, 102, 194, 0.4);
+}
+
+.echo-watching svg {
+    width: 16px;
+    height: 16px;
+    color: white;
+}
+
+@keyframes echo-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(10, 102, 194, 0.4);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 16px rgba(10, 102, 194, 0.6);
+    }
+}
+
+/* Thinking state placeholder */
+.echo-thinking {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #0A66C2;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.echo-dots {
+    animation: echo-dots 1.5s infinite;
+}
+
+@keyframes echo-dots {
+
+    0%,
+    20% {
+        opacity: 0.2;
+    }
+
+    40% {
+        opacity: 1;
+    }
+
+    60%,
+    100% {
+        opacity: 0.2;
+    }
+}
+
+/* Completion state - green border on comment form */
+.echo-complete {
+    border: 2px solid #10B981 !important;
+    border-radius: 8px;
+    animation: echo-success 0.5s ease;
+}
+
+@keyframes echo-success {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Retry button */
+.echo-retry-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    background: #F3F2EF;
+    border: 1px solid #E0E0E0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 100;
+}
+
+.echo-retry-btn:hover {
+    background: #0A66C2;
+    border-color: #0A66C2;
+}
+
+.echo-retry-btn:hover svg {
+    color: white;
+}
+
+.echo-retry-btn svg {
+    width: 16px;
+    height: 16px;
+    color: #666666;
+    transition: color 0.2s ease;
+}
+
+.echo-retry-btn:active {
+    transform: scale(0.95);
+}
+
+/* Notification toast */
+.echo-notification {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #191919;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    z-index: 100000;
+    animation: echo-slide-up 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    pointer-events: auto;
+}
+
+.echo-notification-error {
+    background: #DC2626;
+}
+
+.echo-notification-hide {
+    animation: echo-slide-down 0.3s ease forwards;
+}
+
+@keyframes echo-slide-up {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes echo-slide-down {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+}
+
+/* Override LinkedIn's focus styles for our completion state */
+.echo-complete:focus-within {
+    border-color: #10B981 !important;
+}
