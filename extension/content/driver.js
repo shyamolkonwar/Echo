@@ -803,14 +803,18 @@ class AutoPilotDriver {
             await this.sleep(300);
         }
 
-        // Expanded selectors including Art Deco (LinkedIn standard)
+        // Expanded selectors including the actual LinkedIn button classes
         const postButtonSelectors = [
+            'button.comments-comment-box__submit-button--cr',  // LinkedIn's actual class
+            'button[class*="comments-comment-box__submit-button"]',  // Wildcard match
             'button.comments-comment-box__submit-button',
+            'button[id^="ember"][class*="submit-button"]',  // ember ID pattern
             'button[data-control-name="submit_comment"]',
             'button[type="submit"][class*="comment"]',
             '.comments-comment-box button[type="submit"]',
             '.comments-comment-texteditor button[type="submit"]',
-            'button.artdeco-button--primary',
+            '.comments-comment-box button.artdeco-button--primary',
+            'button.artdeco-button--primary[class*="comment"]',
             'div.comments-comment-box__button-group button'
         ];
 

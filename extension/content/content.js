@@ -21,7 +21,7 @@
         commentButton: 'button[aria-label*="omment"], button.comment-button, button[data-control-name="comment"]',
         commentForm: '.comments-comment-box, .comments-comment-texteditor, [class*="comment-box"]',
         commentEditor: '.ql-editor, div[data-placeholder*="Add a comment"], div[contenteditable="true"][aria-label*="comment"], .editor-content[contenteditable="true"]',
-        postButton: 'button.comments-comment-box__submit-button, button[data-control-name="submit_comment"], button[type="submit"][class*="comment"]'
+        postButton: 'button.comments-comment-box__submit-button--cr, button[class*="comments-comment-box__submit-button"], button.comments-comment-box__submit-button, button[data-control-name="submit_comment"], button[type="submit"][class*="comment"]'
     };
 
     // Initialize extension
@@ -89,6 +89,9 @@
                 console.log('[Echo] TOGGLE_AUTOPILOT:', isAutoPilot);
 
                 if (isAutoPilot && autoPilotDriver) {
+                    // CRITICAL: Stop observer to prevent conflict with driver
+                    stopObserver();
+
                     // Start auto-pilot
                     chrome.storage.local.set({ isAutoPilot: true });
                     autoPilotDriver.start();
@@ -99,6 +102,11 @@
                     autoPilotDriver.shouldStop = true;
                     autoPilotDriver.isRunning = false;
                     autoPilotDriver.stop();
+
+                    // Restart observer for semi-auto mode
+                    if (isActive) {
+                        startObserver();
+                    }
                     showNotification('Auto-Pilot STOPPED');
                 }
                 break;
