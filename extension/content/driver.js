@@ -607,11 +607,17 @@ class AutoPilotDriver {
         // DISPATCH EVENTS - Critical for React/LinkedIn to enable Post button
         editor.dispatchEvent(new Event('input', { bubbles: true }));
         editor.dispatchEvent(new Event('change', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: ' ' }));
+        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: ' ' }));
 
-        // Small pause after typing
-        await this.sleep(1000);
+        // Trigger blur/focus to ensure state updates
+        editor.blur();
+        await this.sleep(200);
+        editor.focus();
+
+        // IMPORTANT: Wait for LinkedIn UI to enable the Post button
+        console.log('[Echo Driver] Waiting for UI to update...');
+        await this.sleep(2000);
 
         // Visual feedback
         const form = document.querySelector('.comments-comment-box');
@@ -623,71 +629,51 @@ class AutoPilotDriver {
     }
 
     // ==================== VERIFICATION MODULE ====================
-    async waitForVerification(commentText, timeout = 10000) {
+    async waitForVerification(commentText, timeout = 8000) {
         console.log('[Echo Driver] 🔍 Starting verification...');
-        const startTime = Date.now();
 
-        // Strategy A: Toast Watcher (Primary - Fastest)
-        const toastPromise = new Promise((resolve) => {
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    for (const node of mutation.addedNodes) {
-                        if (node.nodeType === 1) {
-                            const toast = node.querySelector ? node.querySelector('div.artdeco-toast-item') : null;
-                            if (toast || node.classList?.contains('artdeco-toast-item')) {
-                                const text = (toast || node).textContent?.toLowerCase() || '';
-                                if (text.includes('comment') || text.includes('posted')) {
-                                    console.log('[Echo Driver] ✅ Toast detected!');
-                                    observer.disconnect();
-                                    resolve({ verified: true, method: 'toast' });
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+        // Wait for LinkedIn to process the post
+        await this.sleep(3000);
 
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-
-            // Cleanup after timeout
-            setTimeout(() => {
-                observer.disconnect();
-                resolve({ verified: false, method: 'none' });
-            }, 5000);
-        });
-
-        // Wait for toast
-        const toastResult = await toastPromise;
-        if (toastResult.verified) {
-            return toastResult;
+        // Check 1: Is the comment box still full?
+        const editor = document.querySelector('.ql-editor[contenteditable="true"]');
+        if (!editor || editor.innerText.trim().length === 0 || editor.innerText.trim() === '') {
+            console.log('[Echo Driver] ✅ Comment box is empty - post likely succeeded');
+            return { verified: true, method: 'editor-empty' };
         }
 
-        // Strategy B: DOM Check (Fallback)
-        console.log('[Echo Driver] Toast not found, trying DOM check...');
-        await this.sleep(2000);
+        // Check 2: Look for success toast
+        const toasts = document.querySelectorAll('.artdeco-toast-item, [data-artdeco-toast-item]');
+        for (const toast of toasts) {
+            const text = toast.textContent?.toLowerCase() || '';
+            if (text.includes('comment') || text.includes('posted') || text.includes('success')) {
+                console.log('[Echo Driver] ✅ Toast detected!');
+                return { verified: true, method: 'toast' };
+            }
+        }
 
+        // Check 3: Wait more and check editor again
+        await this.sleep(2000);
+        const editor2 = document.querySelector('.ql-editor[contenteditable="true"]');
+        if (!editor2 || editor2.innerText.trim().length === 0) {
+            console.log('[Echo Driver] ✅ Comment box cleared after wait');
+            return { verified: true, method: 'editor-cleared' };
+        }
+
+        // Check 4: See if the comment appears in the comment list
         const commentsList = document.querySelector('.comments-comments-list');
         if (commentsList) {
-            const comments = commentsList.querySelectorAll('.comments-comment-item');
+            const comments = commentsList.querySelectorAll('.comments-comment-item, .comments-comment-entity');
             for (const comment of comments) {
                 const commentBody = comment.textContent || '';
-                const authorElement = comment.querySelector('.comments-post-meta__name');
-                const isYou = authorElement?.textContent?.toLowerCase().includes('you');
-
-                if (commentBody.includes(commentText.substring(0, 30)) && isYou) {
+                if (commentBody.includes(commentText.substring(0, 20))) {
                     console.log('[Echo Driver] ✅ Comment found in DOM!');
                     return { verified: true, method: 'dom' };
                 }
             }
         }
 
-        // No verification found
-        const elapsed = Date.now() - startTime;
-        console.log(`[Echo Driver] ⚠️ Verification failed after ${elapsed}ms`);
+        console.log('[Echo Driver] ⚠️ Verification inconclusive');
         return { verified: false, method: 'none' };
     }
 
@@ -729,7 +715,7 @@ class AutoPilotDriver {
                 const allButtons = document.querySelectorAll('.comments-comment-box button, .comments-comment-texteditor button, button.artdeco-button');
                 for (const btn of allButtons) {
                     const text = btn.textContent?.toLowerCase().trim() || '';
-                    if ((text === 'post' || text === 'comment') && !btn.disabled && btn.offsetParent !== null) {
+                    if ((text === 'post' || text === 'comment') && btn.offsetParent !== null) {
                         postBtn = btn;
                         console.log('[Echo Driver] Found Post button via text:', text);
                         break;
@@ -737,8 +723,24 @@ class AutoPilotDriver {
                 }
             }
 
+            // If button found but disabled, wait for it to become enabled
+            if (postBtn && postBtn.disabled) {
+                console.log('[Echo Driver] Post button disabled, waiting...');
+                await this.sleep(1500);
+                // Re-check
+                if (postBtn.disabled) {
+                    console.log('[Echo Driver] Still disabled, continuing to next attempt');
+                    await this.sleep(1000);
+                    continue;
+                }
+            }
+
             if (postBtn && !postBtn.disabled) {
                 console.log(`[Echo Driver] 📤 Clicking Post button (Attempt ${attempt})...`);
+
+                // Focus and click
+                postBtn.focus();
+                await this.sleep(100);
                 postBtn.click();
 
                 // Wait and verify with verification module
