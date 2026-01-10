@@ -38,7 +38,7 @@ class EchoPopup {
         this.elements.apiKey = document.getElementById('api-key');
         this.elements.toggleKeyVisibility = document.getElementById('toggle-key-visibility');
         this.elements.apiProvider = document.querySelectorAll('input[name="api-provider"]');
-        this.elements.voiceDna = document.getElementById('voice-dna');
+        this.elements.userTone = document.getElementById('user-tone');
         this.elements.responseLength = document.getElementById('response-length');
         this.elements.delayTimer = document.getElementById('delay-timer');
         this.elements.saveSettings = document.getElementById('save-settings');
@@ -139,7 +139,7 @@ class EchoPopup {
         await chrome.storage.local.set({
             apiKey: apiKey,
             apiProvider: provider,
-            voiceDna: voice,
+            userTone: voice,
             responseLength: 2,
             delayTimer: 2,
             isActive: false,
@@ -156,7 +156,8 @@ class EchoPopup {
         const settings = await chrome.storage.local.get([
             'apiKey',
             'apiProvider',
-            'voiceDna',
+            'userTone',
+            'voiceDna',  // Keep for migration
             'responseLength',
             'delayTimer',
             'isActive',
@@ -174,8 +175,10 @@ class EchoPopup {
             });
         }
 
-        if (settings.voiceDna) {
-            this.elements.voiceDna.value = settings.voiceDna;
+        // Load userTone (fallback to voiceDna for migration)
+        const userTone = settings.userTone || settings.voiceDna || '';
+        if (this.elements.userTone) {
+            this.elements.userTone.value = userTone;
         }
 
         if (settings.responseLength) {
@@ -201,7 +204,7 @@ class EchoPopup {
     async saveSettings() {
         const apiKey = this.elements.apiKey.value.trim();
         const apiProvider = Array.from(this.elements.apiProvider).find(r => r.checked)?.value || 'openai';
-        const voiceDna = this.elements.voiceDna.value.trim();
+        const userTone = this.elements.userTone?.value.trim() || '';
         const responseLength = parseInt(this.elements.responseLength.value);
         const delayTimer = parseInt(this.elements.delayTimer.value);
 
@@ -213,7 +216,7 @@ class EchoPopup {
         await chrome.storage.local.set({
             apiKey,
             apiProvider,
-            voiceDna,
+            userTone,
             responseLength,
             delayTimer
         });

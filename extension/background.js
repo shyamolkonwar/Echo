@@ -90,10 +90,28 @@ async function handleGenerateComment(message, sendResponse) {
     }
 }
 
+// ==================== MASTER PROMPT TEMPLATE ====================
+const MASTER_PROMPT_TEMPLATE = {
+    role: `You are a highly intelligent, top-tier LinkedIn networker. Your goal is to write comments that spark conversation, add value, or offer a unique perspective.`,
+
+    constraints: [
+        'NEVER start with "Great post", "Thanks for sharing", or "Insightful"',
+        'NO hashtags',
+        'Keep it under 25 words unless the topic requires deep nuance',
+        'Do not summarize the post - the author knows what they wrote',
+        'Do not sound like a bot - be human, imperfect, and casual'
+    ],
+
+    visualContext: `The post includes an image. Your comment MUST reference a specific visual detail (e.g., a color, a number on a chart, a person's expression) to prove you actually saw it.`,
+
+    personaInjection: (userTone) => `The user describes their voice as: "${userTone}". ADAPT your writing style to match this persona, but do not override the hard constraints above.`
+};
+
 // Build the prompt for comment generation
 function buildPrompt(postData, quickTone, settings) {
     const toneDescription = TONE_PRESETS[quickTone] || TONE_PRESETS.professional;
-    const voiceDna = settings.voiceDna || '';
+    const userTone = settings.userTone || settings.voiceDna || 'professional and thoughtful';
+    const hasImage = postData.hasImage === true;
 
     // Response length guidance
     const lengthGuidance = {
@@ -103,26 +121,27 @@ function buildPrompt(postData, quickTone, settings) {
     };
     const length = lengthGuidance[settings.responseLength] || lengthGuidance[2];
 
-    const systemPrompt = `You are a LinkedIn networking expert who writes authentic, engaging comments.
+    // Build system prompt with master template
+    let systemPrompt = MASTER_PROMPT_TEMPLATE.role + '\n\n';
+    systemPrompt += 'HARD CONSTRAINTS (NEVER VIOLATE):\n';
+    systemPrompt += MASTER_PROMPT_TEMPLATE.constraints.map((c, i) => `${i + 1}. ${c}`).join('\n');
+    systemPrompt += '\n\n';
 
-${toneDescription}
+    // Add vision context if image present
+    if (hasImage) {
+        systemPrompt += 'VISUAL CONTEXT:\n';
+        systemPrompt += MASTER_PROMPT_TEMPLATE.visualContext + '\n\n';
+    }
 
-${voiceDna ? `Additional voice characteristics from the user: ${voiceDna}` : ''}
+    // Inject user persona
+    systemPrompt += 'USER PERSONA:\n';
+    systemPrompt += MASTER_PROMPT_TEMPLATE.personaInjection(userTone) + '\n\n';
 
-STRICT RULES:
-- ${length}
-- Do NOT use hashtags
-- Do NOT start with "Great post" or "Love this" or similar generic openers
-- Do NOT sound robotic or formulaic
-- DO add genuine value or perspective
-- DO be conversational and natural
-- DO reference something specific from the post to show you actually read it`;
+    // Add tone and length
+    systemPrompt += `TONE: ${toneDescription}\n`;
+    systemPrompt += `LENGTH: ${length}`;
 
-    const userPrompt = `Here is a LinkedIn post by ${postData.authorName}:
-
-"${postData.content}"
-
-Write a thoughtful, engaging comment on this post following all the rules above.`;
+    const userPrompt = `Post by ${postData.authorName}:\n"${postData.content}"\n\nWrite an engaging comment.`;
 
     return { systemPrompt, userPrompt };
 }
@@ -287,7 +306,9 @@ chrome.runtime.onInstalled.addListener((details) => {
             responseLength: 2,
             delayTimer: 2,
             activityLog: [],
-            watchedCreators: []
+            watchedCreators: [],
+            userTone: '',  // User's custom voice description
+            voiceDna: ''   // Keep for backward compatibility
         });
 
         console.log('[Echo] Extension installed');

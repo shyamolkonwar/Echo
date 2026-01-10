@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Echo - LinkedIn Ghost Writer",
-    "version": "5.0.0",
+    "version": "5.1.0",
     "description": "Your voice, echoed. AI-powered LinkedIn comment assistant with vision support and autonomous verification.",
     "permissions": [
         "activeTab",

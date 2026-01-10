@@ -1,0 +1,203 @@
+This is a smart pivot. Keeping everything local (`chrome.storage.local`) simplifies privacy compliance and reduces costs, while supporting both OpenAI and Gemini gives your users flexibility.
+
+Here is the updated architecture for **Phase 4: The "Local Brain" & Unified AI Engine**.
+
+---
+
+### **1. The "Local First" Database Strategy**
+
+Since Supabase is gone, we will use the browser's internal storage. This is fast and persistent.
+
+**New Data Structure (in `chrome.storage.local`):**
+
+```javascript
+{
+  // 1. User Preferences
+  "settings": {
+    "provider": "gemini", // or "openai"
+    "gemini_key": "AIza...",
+    "openai_key": "sk-...",
+    "user_tone_raw": "I like to be funny and sarcastic." // The user's input
+  },
+
+  // 2. The Creator "Watchlist"
+  "creators": [
+    { 
+      "id": "12345", 
+      "name": "Sam Altman", 
+      "url": "https://linkedin.com/in/...", 
+      "total_comments": 4
+    }
+  ],
+
+  // 3. Stats & Logs (Limit to last 50 items to save space)
+  "activity_logs": [
+    {
+      "timestamp": 1715420000,
+      "creator": "Sam Altman",
+      "status": "success",
+      "platform": "gemini-1.5-flash"
+    }
+  ]
+}
+
+```
+
+---
+
+### **2. The "Master System Prompt" Architecture**
+
+You are correct: users are bad at prompting. If they write *"be professional"*, the AI sounds robotic.
+
+We will wrap their simple input inside a **"Mega-Prompt"** that enforces high-quality commenting rules while injecting their specific flavor.
+
+**The Prompt Logic:**
+
+```text
+[ROLE]
+You are a highly intelligent, top-tier LinkedIn networker. Your goal is to write comments that spark conversation, add value, or offer a unique perspective.
+
+[HARD CONSTRAINTS - NEVER VIOLATE]
+1. NEVER start with "Great post", "Thanks for sharing", or "Insightful".
+2. NO hashtags.
+3. Keep it under 25 words unless the topic requires deep nuance.
+4. Do not summarize the post. The author knows what they wrote.
+5. Do not sound like a bot. Be human, imperfect, and casual.
+
+[VISUAL CONTEXT]
+(Only inserted if image exists)
+The user has attached an image. Your comment MUST reference a specific detail from this image (e.g., a color, a number on a chart, a person's expression) to prove you actually "saw" it.
+
+[USER PERSONA INJECTION]
+The user has described their voice as follows: 
+"${user_tone_raw}"
+> ADAPT YOUR WRITING STYLE TO MATCH THIS PERSONA, but do not let it override the Hard Constraints.
+
+[INPUT DATA]
+Post Text: "${post_text}"
+Image: [Attached]
+
+```
+
+---
+
+### **3. The Unified AI Service (OpenAI + Gemini)**
+
+You need a single JavaScript module (`ai_service.js`) that handles the complexity of switching providers. The rest of your extension just calls `generateComment(...)` and doesn't care which AI is used.
+
+**Documentation for `ai_service.js` Logic:**
+
+#### **A. The Gemini Branch (Google)**
+
+* **Model:** `gemini-1.5-flash` (Fast, Cheap, Multimodal).
+* **Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_KEY`
+* **Payload Construction:**
+* **Text Only:** Simple `parts: [{ text: ... }]`
+* **With Vision:** You must convert the image to Base64 (minus the `data:image/png;base64,` header).
+
+
+```json
+"contents": [{
+  "parts": [
+    { "text": "THE MASTER SYSTEM PROMPT..." },
+    { "inline_data": { "mime_type": "image/jpeg", "data": "BASE64_STRING..." } }
+  ]
+}]
+
+```
+
+
+
+#### **B. The OpenAI Branch**
+
+* **Model:** `gpt-4o-mini` (Best balance of vision/speed).
+* **Endpoint:** `https://api.openai.com/v1/chat/completions`
+* **Payload Construction:**
+* **Text Only:** Standard `messages` array.
+* **With Vision:**
+
+
+```json
+"messages": [
+  {
+    "role": "system",
+    "content": "THE MASTER SYSTEM PROMPT..."
+  },
+  {
+    "role": "user",
+    "content": [
+      { "type": "text", "text": "Here is the post content..." },
+      { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,BASE64_STRING..." } }
+    ]
+  }
+]
+
+```
+
+
+
+---
+
+### **4. Detailed Flow: How "Vision" Works Locally**
+
+Since we aren't uploading images to a server, we must process them in the browser memory.
+
+**Step 1: The "Snapshot" (Content Script)**
+When the Auto-Scroller stops on a post with an image:
+
+1. Identify the image element (`img.feed-shared-image__image`).
+2. **Challenge:** You cannot just read `.src` if it's a "blob:" URL or protected by CORS.
+3. **Solution:** Use an invisible `<canvas>` element.
+* Draw the image onto the canvas.
+* Call `canvas.toDataURL('image/jpeg', 0.7)` (compress quality to 0.7 to save tokens).
+* This gives you a raw Base64 string.
+
+
+
+**Step 2: The "Handoff" (Background Script)**
+
+1. Content script sends `{ action: "analyze", text: "...", image: "base64..." }` to Background.
+2. Background script checks `chrome.storage.local` to see which provider is active (`openai` or `gemini`).
+3. It formats the payload accordingly (as described in Sec 3).
+4. It calls the API.
+5. It returns the *text comment* back to the Content Script.
+
+---
+
+### **5. Updated Settings Page (Dashboard)**
+
+Your Dashboard (`dashboard.html`) now needs a "Brain Configuration" tab.
+
+**UI Elements:**
+
+1. **Provider Toggle:** A segmented switch [ **Gemini** | **OpenAI** ].
+2. **API Key Field:** Changes based on the toggle.
+* *Validation:* Add a "Test Key" button that makes a dummy call to ensure it works.
+
+
+3. **"My Voice" Section:**
+* Keep your text area for their custom tone.
+* **New Feature:** Add a "Optimize my Tone" button.
+* *Logic:* If the user types "I'm a developer", clicking "Optimize" sends that to the LLM to rewrite it into: *"I am a pragmatic software engineer. I prefer logic over fluff. I use technical analogies where appropriate but keep things accessible."* -> Then saves *that* into the settings.
+
+
+
+### **6. Summary of Workflows**
+
+**The "Setup" Flow:**
+
+1. User opens Dashboard -> Settings.
+2. Selects "Gemini".
+3. Pastes Google API Key.
+4. Clicks "Test". System confirms "Connected".
+5. Enters Tone: "Casual, witty."
+6. System saves to `chrome.storage.local`.
+
+**The "Active" Flow:**
+
+1. Extension sees a post with a chart.
+2. Extension extracts text + Screenshot of chart (Base64).
+3. Extension reads `chrome.storage.local`: "User wants Gemini".
+4. Extension constructs the **Master Prompt** (Constraints + "Casual, witty" + Chart Context).
+5. Gemini returns: *"That growth curve in Q3 is wild! 📈 Does this account for the new API changes?"*
+6. Extension types it into the comment box.
