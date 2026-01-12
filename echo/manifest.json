@@ -43,6 +43,7 @@
                 "lib/html2canvas.min.js",
                 "content/platform_router.js",
                 "content/reddit_logic.js",
+                "content/reddit_driver.js",
                 "content/driver.js",
                 "content/content.js"
             ],
@@ -59,6 +60,7 @@
                 "lib/html2canvas.min.js",
                 "content/platform_router.js",
                 "content/reddit_logic.js",
+                "content/reddit_driver.js",
                 "content/driver.js",
                 "content/content.js"
             ],
