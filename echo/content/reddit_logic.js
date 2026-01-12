@@ -9,27 +9,31 @@
 
     console.log('[Echo Reddit] Module loaded');
 
-    // ==================== REDDIT SELECTORS ====================
+    // ==================== REDDIT SELECTORS (Updated 2026) ====================
 
     const SELECTORS = {
         // Feed and posts
         feed: 'shreddit-feed, div#main-content',
-        post: 'shreddit-post, article.w-full',
-        postTitle: 'div[slot="title"] h1, h1[slot="title"], a[slot="title"]',
-        postBody: 'div[slot="text-body"], div#post-content, div[contenteditable="true"]',
-        subreddit: 'a[href^="/r/"], shreddit-subreddit-header a',
-        flair: 'flair-text, .flair, [class*="flair"]',
-        timestamp: 'time, [data-testid="post_timestamp"]',
+        post: 'article.w-full shreddit-post, shreddit-post',
+        postTitle: '[slot="title"], a[id^="post-title-"], h1[slot="title"]',
+        postBody: 'shreddit-post-text-body [slot="text-body"] .md, div[id$="-post-rtjson-content"]',
+        subreddit: 'a[data-testid="subreddit-name"], a[href^="/r/"]',
+        flair: 'shreddit-post-flair, flair-text, [class*="flair"]',
+        timestamp: 'faceplate-timeago time, time[datetime]',
 
-        // Comments
-        commentButton: 'button[aria-label*="comment"], a[data-click-id="comments"]',
-        commentBox: 'div[contenteditable="true"][role="textbox"]',
-        commentInput: 'textarea[name="text"], div.public-DraftEditor-content',
-        submitButton: 'button[type="submit"]',
+        // Comments - Updated for new Reddit UI
+        commentButton: 'a[data-post-click-location="comments-button"], a[name="comments-action-button"]',
+        commentBox: 'textarea#innerTextArea, textarea[placeholder*="conversation"], div[contenteditable="true"][role="textbox"]',
+        commentInput: 'textarea#innerTextArea, textarea[name="text"]',
+        submitButton: 'button[type="submit"].button-primary, form button[type="submit"]',
+
+        // Navigation
+        backButton: 'button[aria-label="Back"]',
 
         // Metadata
-        upvotes: 'shreddit-post::upvote-count, div[id*="vote"]',
-        author: 'a[href^="/user/"]'
+        upvoteButton: 'button[upvote]',
+        downvoteButton: 'button[downvote]',
+        author: 'a[href^="/user/"], shreddit-post[author]'
     };
 
     // ==================== POST EXTRACTION ====================
@@ -190,7 +194,7 @@
     }
 
     /**
-     * Insert comment text into Reddit's Markdown editor
+     * Insert comment text into Reddit's comment box (textarea or contenteditable)
      */
     window.insertRedditComment = async function (postElement, commentText) {
         try {
@@ -206,22 +210,34 @@
             commentBox.focus();
             await sleep(500);
 
-            // Clear any existing text
-            commentBox.textContent = '';
+            // Check if it's a textarea or a contenteditable div
+            const isTextarea = commentBox.tagName.toLowerCase() === 'textarea';
 
-            // Insert text using execCommand (works with most editors)
-            document.execCommand('insertText', false, commentText);
+            if (isTextarea) {
+                // For textarea elements, use .value
+                commentBox.value = commentText;
 
-            // Fallback: direct textContent set
-            if (!commentBox.textContent || commentBox.textContent.trim() === '') {
-                commentBox.textContent = commentText;
+                // Trigger input event for React/frameworks to detect change
+                const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+                commentBox.dispatchEvent(inputEvent);
 
-                // Trigger input event
-                const event = new Event('input', { bubbles: true });
-                commentBox.dispatchEvent(event);
+                // Also trigger change event
+                const changeEvent = new Event('change', { bubbles: true, cancelable: true });
+                commentBox.dispatchEvent(changeEvent);
+            } else {
+                // For contenteditable divs, use execCommand or textContent
+                commentBox.textContent = '';
+                document.execCommand('insertText', false, commentText);
+
+                // Fallback if execCommand didn't work
+                if (!commentBox.textContent || commentBox.textContent.trim() === '') {
+                    commentBox.textContent = commentText;
+                    const event = new Event('input', { bubbles: true });
+                    commentBox.dispatchEvent(event);
+                }
             }
 
-            console.log('[Echo Reddit] Comment inserted:', commentText);
+            console.log('[Echo Reddit] Comment inserted:', commentText.substring(0, 50) + '...');
             return true;
         } catch (error) {
             console.error('[Echo Reddit] Error inserting comment:', error);
@@ -234,7 +250,24 @@
      */
     window.submitRedditComment = async function () {
         try {
-            const submitButton = document.querySelector(SELECTORS.submitButton);
+            // Try primary selector first
+            let submitButton = document.querySelector('button[type="submit"].button-primary');
+
+            // Fallback: find button with "Comment" text
+            if (!submitButton) {
+                const buttons = document.querySelectorAll('button[type="submit"]');
+                for (const btn of buttons) {
+                    if (btn.textContent.toLowerCase().includes('comment')) {
+                        submitButton = btn;
+                        break;
+                    }
+                }
+            }
+
+            // Final fallback: any submit button in form
+            if (!submitButton) {
+                submitButton = document.querySelector('form button[type="submit"]');
+            }
 
             if (!submitButton) {
                 console.error('[Echo Reddit] Submit button not found');
@@ -248,6 +281,25 @@
             return true;
         } catch (error) {
             console.error('[Echo Reddit] Error submitting comment:', error);
+            return false;
+        }
+    };
+
+    /**
+     * Navigate back to feed after commenting
+     */
+    window.navigateBackToFeed = async function () {
+        try {
+            const backButton = document.querySelector(SELECTORS.backButton);
+            if (backButton) {
+                await sleep(1500); // Wait for comment to post
+                backButton.click();
+                console.log('[Echo Reddit] Navigated back to feed');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('[Echo Reddit] Error navigating back:', error);
             return false;
         }
     };
