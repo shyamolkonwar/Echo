@@ -6,13 +6,16 @@
 
 ## Features
 
-- 🧠 **Smart AI Comments** - Generates contextual, non-bot-like comments using GPT-4o-mini or Gemini 1.5 Flash
+- 🧠 **Smart AI Comments** - Generates contextual, non-bot-like comments using GPT-4o, Gemini 1.5 Flash, or DeepSeek
 - 👁️ **Vision Support** - Analyzes images in posts to reference specific visual details
+- 🎯 **Manual Generate Button** - On-demand AI comment generation with a single click
 - 🚀 **Auto-Pilot Mode** - Fully autonomous scrolling, liking, and commenting
+- 🔄 **Semi-Auto Mode** - Auto-generates comments as you scroll, you review and post
 - 🚫 **Ad Evasion** - Automatically skips promoted posts and ads
 - 🎭 **Persona Engine** - Adapts to your custom voice and writing style
 - ✅ **Smart Verification** - Confirms successful posting before moving on
 - 🔒 **100% Local** - All data stored locally, no cloud dependencies
+- 🛡️ **Duplicate Prevention** - Tracks commented posts to avoid duplicate comments
 
 ## Installation
 
@@ -33,7 +36,8 @@ cd Echo
 2. Enter your API key:
    - **OpenAI**: Get from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
    - **Google Gemini**: Get from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-3. Select your provider (OpenAI or Gemini)
+   - **DeepSeek**: Get from [platform.deepseek.com](https://platform.deepseek.com)
+3. Select your provider (OpenAI, Gemini, or DeepSeek)
 4. Click **Save Settings**
 
 ### 4. Set Your Voice
@@ -44,10 +48,19 @@ In the popup, enter your persona in the "My Voice" field. Examples:
 
 ## Usage
 
+### Manual Generate Button (New!)
+1. Navigate to any LinkedIn post
+2. Click the comment button to open the comment box
+3. Click **"Generate with Echo"** button
+4. Review the AI-generated comment
+5. Click Post when ready
+
+**Note:** Manual button works independently - no need to toggle Echo Active or Auto-Pilot!
+
 ### Semi-Auto Mode (Recommended)
 1. Toggle **Echo Active** ON in the popup
 2. Scroll LinkedIn naturally
-3. When viewing a post, Echo auto-generates a comment
+3. When viewing a post (80% visible for 2 seconds), Echo auto-generates a comment
 4. Review and click Post manually
 
 ### Auto-Pilot Mode
@@ -68,7 +81,8 @@ Echo/
 │   ├── manifest.json          # Chrome extension manifest
 │   ├── background.js          # API calls, prompt engine
 │   ├── content/
-│   │   ├── content.js         # Main content script
+│   │   ├── content.js         # Main content script, manual button
+│   │   ├── content.css        # Extension styles
 │   │   └── driver.js          # Auto-pilot driver
 │   ├── popup/
 │   │   ├── popup.html         # Extension popup UI
@@ -85,7 +99,7 @@ Echo/
 ## Key Technologies
 
 - **Chrome Extensions API** (Manifest V3)
-- **OpenAI GPT-4o-mini** / **Google Gemini 1.5 Flash**
+- **OpenAI GPT-4o** / **Google Gemini 1.5 Flash** / **DeepSeek Chat**
 - **html2canvas** for image capture
 - **Chrome Storage API** for local data persistence
 
@@ -93,20 +107,32 @@ Echo/
 
 Echo is designed to behave like a human:
 - ❌ Never starts with "Great post", "Thanks for sharing", etc.
-- ❌ No hashtags in comments
+- ❌ No hashtags or em dashes in comments
 - ✅ Short, punchy responses (15-30 words)
 - ✅ Uses contractions and sentence fragments
 - ✅ References specific visual details in image posts
 - ✅ Human-like typing speed with random delays
+- ✅ Persistent duplicate comment prevention
 
 ## Configuration Options
 
-| Setting | Description | Default |
+| Setting | Description | Options |
 |---------|-------------|---------|
-| API Provider | OpenAI or Gemini | OpenAI |
-| Response Length | Short/Medium/Long | Medium |
-| Quick Tone | Professional/Friendly/Witty/Thought-provoking | Professional |
-| My Voice | Your custom persona description | - |
+| API Provider | AI model provider | OpenAI / Gemini / DeepSeek |
+| Response Length | Comment length | Short / Medium / Long |
+| Quick Tone | Comment style | Professional / Friendly / Witty / Thought-provoking |
+| My Voice | Your custom persona | Free text description |
+
+## Features Comparison
+
+| Feature | Manual Button | Semi-Auto | Auto-Pilot |
+|---------|--------------|-----------|------------|
+| User Control | Full | High | Low |
+| Speed | On-demand | Medium | Fast |
+| Requires Active Toggle | ❌ No | ✅ Yes | ✅ Yes |
+| Auto-scrolls | ❌ No | ❌ No | ✅ Yes |
+| Auto-posts | ❌ No | ❌ No | ✅ Yes |
+| Best For | Selective engagement | Daily browsing | Mass engagement |
 
 ## Contributing
 
