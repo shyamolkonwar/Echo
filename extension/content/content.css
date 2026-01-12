@@ -204,3 +204,61 @@
 .echo-complete:focus-within {
     border-color: #10B981 !important;
 }
+
+/* Manual Generate Button */
+.echo-manual-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #0A66C2 0%, #0077B5 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 2px 8px rgba(10, 102, 194, 0.2);
+    margin: 8px;
+}
+
+.echo-manual-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(10, 102, 194, 0.3);
+}
+
+.echo-manual-btn:active {
+    transform: translateY(0);
+}
+
+.echo-manual-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.5;
+}
+
+.echo-manual-btn--loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.echo-manual-btn--loading svg {
+    animation: echo-spin 1s linear infinite;
+}
+
+@keyframes echo-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.echo-manual-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

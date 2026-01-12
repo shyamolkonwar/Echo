@@ -59,8 +59,110 @@
             startObserver();
         }
 
+        // Set up manual button injection system
+        setupManualButtonSystem();
+
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener(handleMessage);
+    }
+
+    // ==================== MANUAL COMMENT BUTTON SYSTEM ====================
+    let commentBoxObserver = null;
+
+    function setupManualButtonSystem() {
+        // Watch for comment boxes appearing
+        commentBoxObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Check if it's a comment box
+                        const commentBoxes = node.matches?.(SELECTORS.commentForm) ? [node] : node.querySelectorAll?.(SELECTORS.commentForm) || [];
+                        commentBoxes.forEach(box => {
+                            if (!isAutoPilot && isActive) {
+                                injectManualButton(box);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+
+        commentBoxObserver.observe(document.body, { childList: true, subtree: true });
+
+        // Also check existing comment boxes
+        if (!isAutoPilot && isActive) {
+            document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
+        }
+    }
+
+    function injectManualButton(commentBox) {
+        if (isAutoPilot || commentBox.querySelector('.echo-manual-btn')) return;
+        const editor = commentBox.querySelector(SELECTORS.commentEditor);
+        if (!editor) return;
+
+        const button = document.createElement('button');
+        button.className = 'echo-manual-btn';
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>Generate with Echo</span>`;
+        button.title = 'Generate AI comment';
+        button.type = 'button';
+        button.addEventListener('click', async () => await handleManualGenerate(commentBox));
+
+        const buttonGroup = commentBox.querySelector('.comments-comment-box__button-group, .comments-comment-texteditor__toolbar');
+        if (buttonGroup) {
+            buttonGroup.appendChild(button);
+        } else {
+            editor.parentElement.insertBefore(button, editor);
+        }
+    }
+
+    async function handleManualGenerate(commentBox) {
+        const button = commentBox.querySelector('.echo-manual-btn');
+        if (!button) return;
+
+        try {
+            button.classList.add('echo-manual-btn--loading');
+            button.disabled = true;
+
+            const post = commentBox.closest(SELECTORS.feedPost);
+            if (!post) throw new Error('Could not find post element');
+
+            const postData = extractPostData(post);
+            if (!postData.content || postData.content.length < 10) throw new Error('No valid content found');
+
+            const response = await chrome.runtime.sendMessage({ type: 'GENERATE_COMMENT', postData, quickTone });
+            if (response.error) throw new Error(response.error);
+
+            if (response.comment) {
+                const editor = commentBox.querySelector(SELECTORS.commentEditor);
+                if (editor) {
+                    insertCommentText(editor, response.comment);
+                    showNotification('✨ Comment generated!');
+                }
+            }
+        } catch (error) {
+            console.error('[Echo] Manual generation error:', error);
+            showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            button.classList.remove('echo-manual-btn--loading');
+            button.disabled = false;
+        }
+    }
+
+    function removeAllManualButtons() {
+        document.querySelectorAll('.echo-manual-btn').forEach(btn => btn.remove());
+    }
+
+    function insertCommentText(editor, comment) {
+        // Focus and insert using exec command
+        editor.focus();
+        const success = document.execCommand('insertText', false, comment);
+
+        if (!success || !editor.innerText.includes(comment.substring(0, 10))) {
+            // Fallback to direct insertion
+            editor.innerHTML = `<p>${comment}</p>`;
+            editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: comment }));
+            editor.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     }
 
     // Handle messages from popup/background
@@ -92,6 +194,9 @@
                     // CRITICAL: Stop observer to prevent conflict with driver
                     stopObserver();
 
+                    // Remove all manual buttons when autopilot starts
+                    removeAllManualButtons();
+
                     // Start auto-pilot
                     chrome.storage.local.set({ isAutoPilot: true });
                     autoPilotDriver.start();
@@ -107,6 +212,10 @@
                     if (isActive) {
                         startObserver();
                     }
+
+                    // Re-inject manual buttons in existing comment boxes
+                    document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
+
                     showNotification('Auto-Pilot STOPPED');
                 }
                 break;
