@@ -270,12 +270,21 @@
 
     function attachCommentButtonListeners() {
         const posts = document.querySelectorAll(SELECTORS.feedPost);
+        console.log('[Echo] Attaching listeners to', posts.length, 'posts');
 
+        let attachedCount = 0;
         posts.forEach(post => {
             const postId = post.getAttribute(SELECTORS.postUrn) || generatePostId(post);
 
             // Skip if already has listener or already processed
-            if (commentButtonListeners.has(postId) || processedPosts.has(postId)) return;
+            if (commentButtonListeners.has(postId)) {
+                console.log('[Echo] Skipping post', postId, '- already has listener');
+                return;
+            }
+            if (processedPosts.has(postId)) {
+                console.log('[Echo] Skipping post', postId, '- already processed');
+                return;
+            }
 
             // Find comment button
             const buttonSelectors = SELECTORS.commentButton.split(', ');
@@ -283,7 +292,10 @@
 
             for (const selector of buttonSelectors) {
                 commentBtn = post.querySelector(selector);
-                if (commentBtn) break;
+                if (commentBtn) {
+                    console.log('[Echo] Found comment button with selector:', selector);
+                    break;
+                }
             }
 
             if (!commentBtn) {
@@ -294,6 +306,7 @@
                     const text = btn.textContent?.toLowerCase() || '';
                     if (ariaLabel.includes('comment') || text.includes('comment')) {
                         commentBtn = btn;
+                        console.log('[Echo] Found comment button via fallback');
                         break;
                     }
                 }
@@ -301,6 +314,7 @@
 
             if (commentBtn) {
                 const handler = async () => {
+                    console.log('[Echo] 🎯 Comment button clicked! Processing post:', postId);
                     // Wait for comment box to appear
                     await sleep(500);
 
@@ -310,8 +324,14 @@
 
                 commentBtn.addEventListener('click', handler, { once: true });
                 commentButtonListeners.set(postId, handler);
+                attachedCount++;
+                console.log('[Echo] ✅ Attached listener to post:', postId);
+            } else {
+                console.log('[Echo] ⚠️ No comment button found for post:', postId);
             }
         });
+
+        console.log('[Echo] Attached listeners to', attachedCount, 'posts');
     }
 
     function stopObserver() {
