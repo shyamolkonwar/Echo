@@ -126,7 +126,7 @@
             const post = commentBox.closest(SELECTORS.feedPost);
             if (!post) throw new Error('Could not find post element');
 
-            const postData = extractPostData(post);
+            const postData = await extractPostData(post);
             if (!postData.content || postData.content.length < 10) throw new Error('No valid content found');
 
             const response = await chrome.runtime.sendMessage({ type: 'GENERATE_COMMENT', postData, quickTone });
@@ -332,7 +332,7 @@
         addWatchingIndicator(post);
 
         // Extract post content
-        const postData = extractPostData(post);
+        const postData = await extractPostData(post);
         console.log('[Echo] Extracted post data:', postData);
 
         if (!postData.content || postData.content.length < 10) {
@@ -381,9 +381,11 @@
     }
 
     // Extract data from a post
-    function extractPostData(post) {
+    async function extractPostData(post) {
         let authorName = '';
         let content = '';
+        let hasImage = false;
+        let imageData = null;
 
         // Get author name - try multiple selectors
         const authorSelectors = SELECTORS.authorName.split(', ');
@@ -414,7 +416,67 @@
             }
         }
 
-        return { authorName, content };
+        // Extract image if present
+        const imageExtractionResult = await extractImageFromPost(post);
+        if (imageExtractionResult.hasImage) {
+            hasImage = true;
+            imageData = imageExtractionResult.imageData;
+        }
+
+        return { authorName, content, hasImage, imageData };
+    }
+
+    async function extractImageFromPost(post) {
+        // Strategy 1: Single image
+        const singleImage = post.querySelector('img.feed-shared-image__image');
+        if (singleImage && singleImage.src) {
+            console.log('[Echo] Found single image');
+            return await captureImageAsBase64(singleImage);
+        }
+
+        // Strategy 2: Carousel (first slide only)
+        const carouselImage = post.querySelector('.feed-shared-carousel__content img, .feed-shared-image-carousel img');
+        if (carouselImage && carouselImage.src) {
+            console.log('[Echo] Found carousel image');
+            return await captureImageAsBase64(carouselImage);
+        }
+
+        return { hasImage: false, imageData: null };
+    }
+
+    async function captureImageAsBase64(imgElement) {
+        try {
+            if (typeof html2canvas === 'undefined') {
+                console.warn('[Echo] html2canvas not loaded');
+                return { hasImage: false, imageData: null };
+            }
+
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.width = '800px';
+            container.style.height = 'auto';
+
+            const img = imgElement.cloneNode(true);
+            img.style.maxWidth = '800px';
+            img.style.height = 'auto';
+            container.appendChild(img);
+            document.body.appendChild(container);
+
+            await new Promise(resolve => {
+                if (img.complete) resolve();
+                else img.onload = resolve;
+            });
+
+            const canvas = await html2canvas(container, { backgroundColor: null, scale: 1 });
+            document.body.removeChild(container);
+
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            return { hasImage: true, imageData: base64 };
+        } catch (error) {
+            console.error('[Echo] Image capture error:', error);
+            return { hasImage: false, imageData: null };
+        }
     }
 
     // Clean up post content
