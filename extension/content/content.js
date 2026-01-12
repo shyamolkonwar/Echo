@@ -313,17 +313,20 @@
             }
 
             if (commentBtn) {
-                const handler = async () => {
+                const handler = async (event) => {
                     console.log('[Echo] 🎯 Comment button clicked! Processing post:', postId);
+
+                    // Don't prevent default - let LinkedIn open the comment box
                     // Wait for comment box to appear
-                    await sleep(500);
+                    await sleep(800);
 
                     // NOW trigger the generation
                     await handlePostVisible(post, postId);
                 };
 
-                commentBtn.addEventListener('click', handler, { once: true });
-                commentButtonListeners.set(postId, handler);
+                // Use capture phase to ensure we run BEFORE LinkedIn's handlers
+                commentBtn.addEventListener('click', handler, { once: true, capture: true });
+                commentButtonListeners.set(postId, { handler, button: commentBtn });
                 attachedCount++;
                 console.log('[Echo] ✅ Attached listener to post:', postId);
             } else {
