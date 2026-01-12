@@ -40,6 +40,7 @@ class AutoPilotDriver {
 
     async init() {
         await this.loadWatchedCreators();
+        await this.loadCommentedPosts();
 
         // Listen for storage changes (for stop signal)
         chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -61,6 +62,13 @@ class AutoPilotDriver {
         const { watchedCreators } = await chrome.storage.local.get('watchedCreators');
         this.watchedCreators = watchedCreators || [];
         console.log('[Echo Driver] Loaded', this.watchedCreators.length, 'watched creators');
+    }
+
+    async loadCommentedPosts() {
+        const { commentedPosts } = await chrome.storage.local.get('commentedPosts');
+        const commentedPostsArray = commentedPosts || [];
+        this.processedPosts = new Set(commentedPostsArray);
+        console.log('[Echo Driver] Loaded', this.processedPosts.size, 'previously commented posts');
     }
 
     async start() {
@@ -266,7 +274,8 @@ class AutoPilotDriver {
 
             // AD EVASION CHECK - Skip promoted/ad posts
             if (this.isAdPost(post)) {
-                this.processedPosts.add(postId); // Mark as processed so we don't check again
+                this.processedPosts.add(postId);
+                await this.saveCommentedPost(postId); // Mark as processed in persistent storage too
                 await this.logActivityLocal({
                     authorName: 'Ad/Promoted',
                     status: 'Skipped',
@@ -472,10 +481,11 @@ class AutoPilotDriver {
     async processPost(target) {
         const { element: post, postId, authorName, isWatchedCreator, priority } = target;
 
-        // Mark as processed
+        // CRITICAL: Mark post as processed AND save to persistent storage
         this.processedPosts.add(postId);
+        await this.saveCommentedPost(postId);
 
-        // Extract content
+        console.log('[Echo Driver] Step 1: Collected post data');
         const content = this.extractPostContent(post);
         if (!content || content.length < 20) {
             console.log('[Echo Driver] Post content too short, skipping');
@@ -1127,6 +1137,22 @@ class AutoPilotDriver {
 
     random(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Save commented post ID to persistent storage
+    async saveCommentedPost(postId) {
+        const { commentedPosts } = await chrome.storage.local.get('commentedPosts');
+        const posts = commentedPosts || [];
+
+        // Add new post ID if not already present
+        if (!posts.includes(postId)) {
+            posts.push(postId);
+
+            // Keep only last 500 posts to prevent storage bloat
+            const trimmedPosts = posts.slice(-500);
+            await chrome.storage.local.set({ commentedPosts: trimmedPosts });
+            console.log('[Echo Driver] Saved commented post to storage:', postId);
+        }
     }
 }
 

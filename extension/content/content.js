@@ -28,11 +28,16 @@
     async function init() {
         console.log('[Echo] Content script initialized on LinkedIn');
 
-        // Load initial settings
-        const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'quickTone']);
+        // Load initial settings and commented posts history
+        const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'quickTone', 'commentedPosts']);
         isActive = settings.isActive || false;
         isAutoPilot = settings.isAutoPilot || false;
         quickTone = settings.quickTone || 'professional';
+
+        // Load previously commented posts
+        const commentedPostsArray = settings.commentedPosts || [];
+        processedPosts = new Set(commentedPostsArray);
+        console.log('[Echo] Loaded', processedPosts.size, 'previously commented posts');
 
         console.log('[Echo] Initial state - isActive:', isActive, 'isAutoPilot:', isAutoPilot);
 
@@ -322,10 +327,18 @@
 
     // Handle post becoming visible
     async function handlePostVisible(post, postId) {
-        if (!isActive || processedPosts.has(postId)) return;
+        if (!isActive || processedPosts.has(postId)) {
+            if (processedPosts.has(postId)) {
+                console.log('[Echo] Skipping post - already commented:', postId);
+            }
+            return;
+        }
 
         console.log('[Echo] Processing post:', postId);
         processedPosts.add(postId);
+
+        // Persist to storage
+        await saveCommentedPost(postId);
         currentPostElement = post;
 
         // Add watching indicator
@@ -821,6 +834,22 @@
 
         form.style.position = 'relative';
         form.appendChild(retryBtn);
+    }
+
+    // Save commented post ID to persistent storage
+    async function saveCommentedPost(postId) {
+        const { commentedPosts } = await chrome.storage.local.get('commentedPosts');
+        const posts = commentedPosts || [];
+
+        // Add new post ID if not already present
+        if (!posts.includes(postId)) {
+            posts.push(postId);
+
+            // Keep only last 500 posts to prevent storage bloat
+            const trimmedPosts = posts.slice(-500);
+            await chrome.storage.local.set({ commentedPosts: trimmedPosts });
+            console.log('[Echo] Saved commented post to storage:', postId);
+        }
     }
 
     // Log activity
