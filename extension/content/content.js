@@ -75,15 +75,21 @@
     let commentBoxObserver = null;
 
     function setupManualButtonSystem() {
-        // Watch for comment boxes appearing
+        console.log('[Echo] Setting up manual button system (independent mode)');
+
+        // Watch for comment boxes appearing - inject button for ANY new comment box
         commentBoxObserver = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Check if it's a comment box
-                        const commentBoxes = node.matches?.(SELECTORS.commentForm) ? [node] : node.querySelectorAll?.(SELECTORS.commentForm) || [];
+                        // Check if it's a comment box or contains comment boxes
+                        const commentBoxes = node.matches?.(SELECTORS.commentForm)
+                            ? [node]
+                            : node.querySelectorAll?.(SELECTORS.commentForm) || [];
+
                         commentBoxes.forEach(box => {
-                            if (!isAutoPilot && isActive) {
+                            // Always inject if autopilot is OFF (independent of isActive)
+                            if (!isAutoPilot) {
                                 injectManualButton(box);
                             }
                         });
@@ -94,14 +100,18 @@
 
         commentBoxObserver.observe(document.body, { childList: true, subtree: true });
 
-        // Also check existing comment boxes
-        if (!isAutoPilot && isActive) {
+        // Also check existing comment boxes on page
+        if (!isAutoPilot) {
             document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
         }
+
+        console.log('[Echo] Manual button system ready');
     }
 
     function injectManualButton(commentBox) {
+        // Skip if autopilot is ON or button already exists
         if (isAutoPilot || commentBox.querySelector('.echo-manual-btn')) return;
+
         const editor = commentBox.querySelector(SELECTORS.commentEditor);
         if (!editor) return;
 
@@ -118,6 +128,8 @@
         } else {
             editor.parentElement.insertBefore(button, editor);
         }
+
+        console.log('[Echo] ✅ Manual button injected');
     }
 
     async function handleManualGenerate(commentBox) {
