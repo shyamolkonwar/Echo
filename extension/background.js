@@ -116,15 +116,24 @@ The author knows what they wrote. Do not re-state the premise.
 ### 1.3 The "Hashtag Prohibition"
 Do not use hashtags. Zero. None.
 
-### 1.4 The "Brevity Protocol"
-- Target: 15–30 words
+### 1.4 The "Em Dash Prohibition" (CRITICAL)
+NEVER use em dashes (—) in your comments. This is an absolute rule with zero exceptions.
+- Em dashes are a telltale sign of AI-generated text
+- Use commas, periods, or semicolons instead
+- If you need a pause, start a new sentence
+- BAD: "This is interesting — but what about the edge cases?"
+- GOOD: "This is interesting. But what about the edge cases?"
+
+### 1.5 The "Brevity Protocol"
+- Target: 15 to 30 words
 - Maximum: 50 words (only for deeply technical topics)
 - High-status people write short, punchy sentences
 
-### 1.5 The "Imperfect Human" Texture
+### 1.6 The "Imperfect Human" Texture
 - Use contractions ("It's" not "It is")
 - Use sentence fragments for effect
 - Avoid perfect, stiff grammar
+- NEVER use em dashes
 
 ${hasImage ? `
 # SECTION 2: THE "VISUAL ANCHOR" PROTOCOL (MANDATORY)
@@ -151,13 +160,14 @@ Your comment must be one of:
 
 # SECTION 5: QUALITY CHECKS
 Before output:
-- Does it sound like a bot? → REWRITE
-- Longer than 3 sentences? → CUT 50%
-- Mentioned the image? (if exists) → REQUIRED
-- Too agreeable? → Add nuance
-- Used banned phrase? → DELETE
+- Does it sound like a bot? -> REWRITE
+- Contains em dash (—)? -> REWRITE without it
+- Longer than 3 sentences? -> CUT 50%
+- Mentioned the image? (if exists) -> REQUIRED
+- Too agreeable? -> Add nuance
+- Used banned phrase? -> DELETE
 
-Generate ONLY the final comment. No explanations. No quotes.`;
+Generate ONLY the final comment. No explanations. No quotes. NO EM DASHES.`;
 
     const userPrompt = `Post by ${postData.authorName}:\n"${postData.content}"\n\nWrite an engaging comment.`;
 
