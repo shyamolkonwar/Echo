@@ -97,9 +97,14 @@
 /* ==================== SETTINGS MODAL ==================== */
 
 .settings-modal {
-    display: flex;
+    display: none;
+    /* Hidden by default, shown via JS when settings icon clicked */
     flex-direction: column;
     height: 100%;
+}
+
+.settings-modal.active {
+    display: flex;
 }
 
 .settings-container {
