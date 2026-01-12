@@ -1,5 +1,6 @@
 // Echo Chrome Extension - Reddit Driver
 // Orchestrates semi-auto and auto-pilot Reddit automation workflows
+// HUMAN-LIKE BEHAVIOR with curvy, unpredictable delays
 
 (function () {
     'use strict';
@@ -15,11 +16,33 @@
     let isSemiAuto = false;
     let targetSubreddits = [];
     let isProcessing = false;
-    let scrollInterval = null;
+    let shouldStop = false;
 
-    // ==================== CONSTANTS ====================
-    const SCROLL_DELAY = 5000; // 5 seconds between scrolls
-    const POST_PROCESS_DELAY = 3000; // 3 seconds after posting
+    // Session limits (conservative)
+    let scrollCount = 0;
+    let commentCount = 0;
+    let startTime = null;
+    const MAX_SCROLLS = 40;
+    const MAX_COMMENTS_PER_SESSION = 6;
+    const MAX_DURATION = 20 * 60 * 1000; // 20 minutes
+
+    // ==================== HUMAN-LIKE BUFFER TIMING ====================
+    // Curvy, variable delays to avoid detection
+    const BUFFER = {
+        beforeScroll: { min: 4000, max: 9000 },           // 4-9 seconds before scroll
+        afterScroll: { min: 5000, max: 12000 },           // 5-12 seconds read time
+        beforeCommentClick: { min: 2000, max: 5000 },     // 2-5 seconds thinking
+        waitForPageLoad: { min: 3000, max: 5000 },        // 3-5 seconds page load
+        beforeTyping: { min: 2000, max: 4000 },           // 2-4 seconds before typing
+        duringTyping: { min: 40, max: 120 },              // Per character delay
+        typingPause: { min: 300, max: 800 },              // Occasional thinking pause
+        beforeSubmit: { min: 3000, max: 6000 },           // 3-6 seconds review time
+        afterPosting: { min: 12000, max: 25000 },         // 12-25 seconds after posting!
+        afterFail: { min: 5000, max: 10000 },             // 5-10 seconds after fail
+        beforeBack: { min: 2000, max: 4000 },             // Before clicking back
+        afterBack: { min: 8000, max: 15000 },             // 8-15 seconds rest after back
+    };
+
     const STORAGE_KEY = 'reddit_commented_posts';
 
     // ==================== INITIALIZATION ====================
@@ -27,7 +50,6 @@
     async function init() {
         console.log('[Echo Reddit Driver] Initializing...');
 
-        // Load settings
         const settings = await chrome.storage.local.get([
             'isActive', 'platforms', 'reddit_watched_subreddits'
         ]);
@@ -40,34 +62,48 @@
 
         console.log('[Echo Reddit Driver] State:', { isActive, isAutoPilot, isSemiAuto, targetSubreddits });
 
-        if (isActive && (isAutoPilot || isSemiAuto)) {
+        if (isActive && isAutoPilot) {
+            startAutoPilotLoop();
+        } else if (isActive && isSemiAuto) {
             startFeedObserver();
-            if (isAutoPilot) {
-                startAutoScroll();
-            }
         }
 
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener(handleMessage);
+
+        // Listen for storage changes (for stop signal)
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'local') {
+                if (changes.platforms?.newValue?.reddit?.autopilot === false) {
+                    shouldStop = true;
+                    isAutoPilot = false;
+                }
+                if (changes.isActive?.newValue === false) {
+                    shouldStop = true;
+                    isActive = false;
+                }
+            }
+        });
     }
 
     function handleMessage(message, sender, sendResponse) {
         if (message.type === 'TOGGLE_ACTIVE') {
             isActive = message.isActive;
-            if (isActive && (isAutoPilot || isSemiAuto)) {
-                startFeedObserver();
-            } else {
-                stopAutoScroll();
+            if (!isActive) {
+                shouldStop = true;
+            } else if (isAutoPilot) {
+                startAutoPilotLoop();
             }
         }
 
         if (message.type === 'TOGGLE_AUTOPILOT' && message.platform === 'reddit') {
             isAutoPilot = message.isAutoPilot;
             isSemiAuto = !isAutoPilot;
-            if (isAutoPilot) {
-                startAutoScroll();
+            if (isAutoPilot && isActive) {
+                shouldStop = false;
+                startAutoPilotLoop();
             } else {
-                stopAutoScroll();
+                shouldStop = true;
             }
         }
 
@@ -76,12 +112,195 @@
         }
     }
 
-    // ==================== FEED OBSERVER ====================
+    // ==================== MAIN AUTO-PILOT LOOP ====================
+
+    async function startAutoPilotLoop() {
+        if (isProcessing) return;
+
+        isProcessing = true;
+        shouldStop = false;
+        scrollCount = 0;
+        commentCount = 0;
+        startTime = Date.now();
+
+        showNotification('🐢 Reddit Auto-Pilot engaged! Running slow & human-like...');
+        console.log('[Echo Reddit Driver] Starting auto-pilot loop...');
+
+        while (isActive && isAutoPilot && !shouldStop) {
+            // Safety limits
+            if (!checkSafetyLimits()) break;
+
+            // Step 1: Wait before scrolling (humans pause to think)
+            await humanWait('beforeScroll');
+            if (shouldStop) break;
+
+            // Step 2: Human-like scroll
+            await humanScroll();
+            scrollCount++;
+
+            // Step 3: Wait after scroll (reading time)
+            await humanWait('afterScroll');
+            if (shouldStop) break;
+
+            // Step 4: Scan for target posts
+            const target = await scanForTargetPost();
+            if (shouldStop) break;
+
+            if (target) {
+                console.log(`[Echo Reddit Driver] Found target: ${target.postData.postId}`);
+
+                // Step 5: Process post with full human-like flow
+                const success = await processPostAutoPilot(target.element, target.postData);
+
+                if (success) {
+                    commentCount++;
+                    // LONG rest after successful comment
+                    await humanWait('afterPosting');
+                } else {
+                    await humanWait('afterFail');
+                }
+
+                if (shouldStop) break;
+            }
+
+            // Check session limit
+            if (commentCount >= MAX_COMMENTS_PER_SESSION) {
+                showNotification(`🎉 Done! ${commentCount} comments posted.`);
+                break;
+            }
+        }
+
+        isProcessing = false;
+        console.log('[Echo Reddit Driver] Auto-pilot loop ended');
+    }
+
+    // ==================== SAFETY CHECKS ====================
+
+    function checkSafetyLimits() {
+        if (scrollCount >= MAX_SCROLLS) {
+            showNotification('Session limit: Max scrolls reached');
+            return false;
+        }
+
+        if (Date.now() - startTime >= MAX_DURATION) {
+            showNotification('Session limit: Time exceeded');
+            return false;
+        }
+
+        return true;
+    }
+
+    // ==================== HUMAN-LIKE BEHAVIORS ====================
+
+    async function humanWait(bufferType) {
+        const buffer = BUFFER[bufferType];
+        if (!buffer) {
+            await sleep(random(2000, 4000));
+            return;
+        }
+        const waitTime = random(buffer.min, buffer.max);
+        console.log(`[Echo Reddit Driver] Waiting ${waitTime}ms (${bufferType})`);
+        await sleep(waitTime);
+    }
+
+    async function humanScroll() {
+        // Variable scroll amount
+        const scrollAmount = random(300, 700);
+
+        // Scroll in chunks for more human-like behavior
+        const chunks = random(2, 4);
+        const chunkAmount = Math.floor(scrollAmount / chunks);
+
+        for (let i = 0; i < chunks; i++) {
+            if (shouldStop) return;
+
+            window.scrollBy({
+                top: chunkAmount,
+                behavior: 'smooth'
+            });
+
+            // Variable pause between chunks
+            await sleep(random(200, 500));
+        }
+    }
+
+    async function typeSlowly(text, element) {
+        element.focus();
+        await sleep(random(300, 600));
+
+        // Clear existing content
+        if (element.tagName.toLowerCase() === 'textarea') {
+            element.value = '';
+        } else {
+            element.textContent = '';
+        }
+
+        // Type character by character
+        for (let i = 0; i < text.length; i++) {
+            if (shouldStop) break;
+
+            const char = text[i];
+
+            if (element.tagName.toLowerCase() === 'textarea') {
+                element.value += char;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                document.execCommand('insertText', false, char);
+            }
+
+            // Random typing delay
+            await sleep(random(BUFFER.duringTyping.min, BUFFER.duringTyping.max));
+
+            // Occasional thinking pause (5% chance)
+            if (Math.random() < 0.05) {
+                await sleep(random(BUFFER.typingPause.min, BUFFER.typingPause.max));
+            }
+        }
+
+        // Final events to ensure framework detects changes
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // ==================== TARGET SCANNING ====================
+
+    async function scanForTargetPost() {
+        const posts = document.querySelectorAll('shreddit-post, article.w-full shreddit-post');
+
+        for (const post of posts) {
+            if (shouldStop) return null;
+
+            const postData = window.extractRedditPostData?.(post);
+            if (!postData) continue;
+
+            // Check if already commented
+            if (await hasAlreadyCommented(postData.postId)) continue;
+
+            // Check visibility (only process visible posts)
+            const rect = post.getBoundingClientRect();
+            const isVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.7;
+            if (!isVisible) continue;
+
+            // Check if subreddit matches target list
+            if (targetSubreddits.length > 0) {
+                const subredditLower = postData.subreddit.toLowerCase();
+                const matchesTarget = targetSubreddits.some(
+                    target => target.toLowerCase().replace(/^r\//, '') === subredditLower
+                );
+                if (!matchesTarget) continue;
+            }
+
+            return { element: post, postData };
+        }
+
+        return null;
+    }
+
+    // ==================== FEED OBSERVER (Semi-Auto) ====================
 
     function startFeedObserver() {
-        console.log('[Echo Reddit Driver] Starting feed observer...');
+        console.log('[Echo Reddit Driver] Starting semi-auto feed observer...');
 
-        // Use MutationObserver to watch for new posts
         const observer = new MutationObserver((mutations) => {
             if (!isActive || isProcessing) return;
 
@@ -92,77 +311,40 @@
                             ? [node]
                             : node.querySelectorAll?.('shreddit-post, article.w-full') || [];
 
-                        posts.forEach(post => checkPost(post));
+                        posts.forEach(post => checkPostForSemiAuto(post));
                     }
                 });
             });
         });
 
-        // Observe feed container
         const feed = document.querySelector('shreddit-feed, div#main-content, main');
         if (feed) {
             observer.observe(feed, { childList: true, subtree: true });
         }
-
-        // Also scan existing posts
-        scanExistingPosts();
     }
 
-    async function scanExistingPosts() {
-        const posts = document.querySelectorAll('shreddit-post, article.w-full shreddit-post');
-        for (const post of posts) {
-            if (isProcessing) break;
-            await checkPost(post);
+    async function checkPostForSemiAuto(postElement) {
+        const postData = window.extractRedditPostData?.(postElement);
+        if (!postData) return;
+
+        if (await hasAlreadyCommented(postData.postId)) return;
+
+        if (targetSubreddits.length > 0) {
+            const subredditLower = postData.subreddit.toLowerCase();
+            const matchesTarget = targetSubreddits.some(
+                target => target.toLowerCase().replace(/^r\//, '') === subredditLower
+            );
+            if (!matchesTarget) return;
         }
+
+        showPostNotification(postElement, postData);
     }
 
-    // ==================== POST MATCHING ====================
-
-    async function checkPost(postElement) {
-        if (isProcessing) return;
-
-        try {
-            // Extract post data
-            const postData = window.extractRedditPostData?.(postElement);
-            if (!postData) return;
-
-            // Check if already commented
-            if (await hasAlreadyCommented(postData.postId)) {
-                console.log(`[Echo Reddit Driver] Already commented on ${postData.postId}, skipping`);
-                return;
-            }
-
-            // Check if subreddit matches target list
-            if (targetSubreddits.length > 0) {
-                const subredditLower = postData.subreddit.toLowerCase();
-                const matchesTarget = targetSubreddits.some(
-                    target => target.toLowerCase().replace(/^r\//, '') === subredditLower
-                );
-
-                if (!matchesTarget) {
-                    return; // Not a target subreddit
-                }
-            }
-
-            console.log(`[Echo Reddit Driver] Found matching post: ${postData.postId} in r/${postData.subreddit}`);
-
-            if (isAutoPilot) {
-                await processPostAutoPilot(postElement, postData);
-            } else if (isSemiAuto) {
-                showPostNotification(postElement, postData);
-            }
-        } catch (error) {
-            console.error('[Echo Reddit Driver] Error checking post:', error);
-        }
-    }
-
-    // ==================== SEMI-AUTO MODE ====================
+    // ==================== NOTIFICATION (Semi-Auto) ====================
 
     function showPostNotification(postElement, postData) {
-        // Remove any existing notification
         document.querySelector('.echo-reddit-notification')?.remove();
 
-        // Create notification banner
         const notification = document.createElement('div');
         notification.className = 'echo-reddit-notification';
         notification.innerHTML = `
@@ -174,7 +356,6 @@
             </div>
         `;
 
-        // Style the notification
         notification.style.cssText = `
             position: fixed;
             top: 80px;
@@ -195,38 +376,19 @@
                 from { transform: translateX(100%); opacity: 0; }
                 to { transform: translateX(0); opacity: 1; }
             }
-            .echo-notification-content {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
+            .echo-notification-content { display: flex; align-items: center; gap: 12px; }
             .echo-notification-btn {
-                background: white;
-                color: #667eea;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: transform 0.2s;
+                background: white; color: #667eea; border: none;
+                padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
             }
-            .echo-notification-btn:hover {
-                transform: scale(1.05);
-            }
+            .echo-notification-btn:hover { transform: scale(1.05); }
             .echo-notification-close {
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                cursor: pointer;
-                font-size: 16px;
+                background: rgba(255,255,255,0.2); border: none; color: white;
+                width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 16px;
             }
         `;
         document.head.appendChild(style);
 
-        // Handle button click
         notification.querySelector('.echo-notification-btn').addEventListener('click', () => {
             notification.remove();
             processSemiAutoPost(postElement, postData);
@@ -237,8 +399,6 @@
         });
 
         document.body.appendChild(notification);
-
-        // Auto-hide after 15 seconds
         setTimeout(() => notification.remove(), 15000);
     }
 
@@ -246,21 +406,16 @@
         isProcessing = true;
 
         try {
-            // Click comment button to navigate to post
             const commentButton = postElement.querySelector('a[data-post-click-location="comments-button"]');
             if (commentButton) {
                 commentButton.click();
-                await sleep(2000); // Wait for page load
+                await humanWait('waitForPageLoad');
             }
 
-            // Wait for comment box and scroll to it
             await scrollToCommentBox();
-
-            // Generate and insert comment (draft only)
             await generateAndInsertComment(postData, false);
 
-            // Mark as processed but NOT commented (user needs to submit)
-            console.log('[Echo Reddit Driver] Semi-auto draft complete. User can now edit and submit.');
+            console.log('[Echo Reddit Driver] Semi-auto draft complete.');
 
         } catch (error) {
             console.error('[Echo Reddit Driver] Semi-auto error:', error);
@@ -269,82 +424,112 @@
         }
     }
 
-    // ==================== AUTO-PILOT MODE ====================
+    // ==================== AUTO-PILOT POST PROCESSING ====================
 
     async function processPostAutoPilot(postElement, postData) {
-        isProcessing = true;
-
         try {
-            console.log('[Echo Reddit Driver] Starting auto-pilot flow...');
+            console.log('[Echo Reddit Driver] Processing post with human-like flow...');
 
-            // Step 1: Click upvote
+            // Mark as processed early to prevent re-processing
+            await markAsCommented(postData.postId);
+
+            // Step 1: Thinking pause before clicking
+            await humanWait('beforeCommentClick');
+            if (shouldStop) return false;
+
+            // Step 2: Click upvote (humans often upvote before commenting)
             const upvoteBtn = postElement.querySelector('button[upvote]');
             if (upvoteBtn) {
                 upvoteBtn.click();
-                await sleep(500);
-                console.log('[Echo Reddit Driver] Upvoted post');
+                await sleep(random(500, 1000));
             }
 
-            // Step 2: Click comment button to navigate
+            // Step 3: Click comment button to navigate
             const commentButton = postElement.querySelector('a[data-post-click-location="comments-button"]');
             if (!commentButton) {
-                throw new Error('Comment button not found');
+                console.error('[Echo Reddit Driver] Comment button not found');
+                return false;
             }
             commentButton.click();
-            await sleep(2500); // Wait for page to load
 
-            // Step 3: Scroll to comment box
-            await scrollToCommentBox();
+            // Step 4: Wait for page to load (variable time)
+            await humanWait('waitForPageLoad');
+            if (shouldStop) return false;
 
-            // Step 4: Generate and insert comment
-            const success = await generateAndInsertComment(postData, true);
-            if (!success) {
-                throw new Error('Failed to insert comment');
+            // Step 5: Scroll to comment box
+            const commentBox = await scrollToCommentBox();
+            if (!commentBox) {
+                console.error('[Echo Reddit Driver] Comment box not found');
+                return false;
             }
 
-            // Step 5: Submit the comment
-            await sleep(1500);
+            // Step 6: Thinking pause before typing
+            await humanWait('beforeTyping');
+            if (shouldStop) return false;
+
+            // Step 7: Generate comment
+            const response = await chrome.runtime.sendMessage({
+                type: 'GENERATE_COMMENT',
+                postData: postData,
+                platform: 'reddit'
+            });
+
+            if (response.error || !response.comment) {
+                console.error('[Echo Reddit Driver] AI error:', response.error);
+                return false;
+            }
+
+            // Step 8: Type comment SLOWLY (character by character)
+            await typeSlowly(response.comment, commentBox);
+            if (shouldStop) return false;
+
+            // Step 9: Review pause before submitting
+            await humanWait('beforeSubmit');
+            if (shouldStop) return false;
+
+            // Step 10: Submit the comment
             const submitted = await window.submitRedditComment?.();
             if (!submitted) {
-                throw new Error('Failed to submit comment');
+                console.error('[Echo Reddit Driver] Failed to submit');
+                return false;
             }
 
-            // Step 6: Mark as commented
-            await markAsCommented(postData.postId);
-            console.log('[Echo Reddit Driver] Saved post ID:', postData.postId);
+            console.log('[Echo Reddit Driver] Comment submitted successfully!');
+            logActivity(`Commented on r/${postData.subreddit}`);
 
-            // Step 7: Wait and navigate back
-            await sleep(POST_PROCESS_DELAY);
+            // Step 11: Wait before going back
+            await humanWait('beforeBack');
+
+            // Step 12: Navigate back to feed
             const backButton = document.querySelector('button[aria-label="Back"]');
             if (backButton) {
                 backButton.click();
-                console.log('[Echo Reddit Driver] Navigated back to feed');
+                await humanWait('afterBack');
             }
 
-            // Log activity
-            logActivity(`Commented on r/${postData.subreddit}`);
+            return true;
 
         } catch (error) {
             console.error('[Echo Reddit Driver] Auto-pilot error:', error);
-        } finally {
-            isProcessing = false;
+            return false;
         }
     }
 
-    // ==================== COMMENT GENERATION ====================
+    // ==================== COMMENT BOX HELPERS ====================
 
     async function scrollToCommentBox() {
-        // Wait for comment box to appear
         let commentBox = null;
-        for (let i = 0; i < 20; i++) {
+
+        // Wait with timeout
+        for (let i = 0; i < 30; i++) {
             commentBox = document.querySelector('textarea#innerTextArea, textarea[placeholder*="conversation"], div[contenteditable="true"][role="textbox"]');
             if (commentBox) break;
-            await sleep(250);
+            await sleep(200);
         }
 
         if (commentBox) {
             commentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await sleep(500);
+            await sleep(random(500, 1000));
             commentBox.focus();
         }
 
@@ -353,55 +538,27 @@
 
     async function generateAndInsertComment(postData, autoSubmit) {
         try {
-            // Request comment from background script
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: postData,
                 platform: 'reddit'
             });
 
-            if (response.error) {
+            if (response.error || !response.comment) {
                 console.error('[Echo Reddit Driver] AI error:', response.error);
                 return false;
             }
 
-            const comment = response.comment;
-            if (!comment) {
-                console.error('[Echo Reddit Driver] No comment generated');
-                return false;
+            const commentBox = document.querySelector('textarea#innerTextArea, textarea[placeholder*="conversation"]');
+            if (commentBox) {
+                await typeSlowly(response.comment, commentBox);
             }
 
-            // Insert the comment
-            const inserted = await window.insertRedditComment?.(null, comment);
-            return inserted;
+            return true;
 
         } catch (error) {
             console.error('[Echo Reddit Driver] Comment generation error:', error);
             return false;
-        }
-    }
-
-    // ==================== AUTO-SCROLL ====================
-
-    function startAutoScroll() {
-        if (scrollInterval) return;
-
-        console.log('[Echo Reddit Driver] Starting auto-scroll...');
-
-        scrollInterval = setInterval(() => {
-            if (!isActive || !isAutoPilot || isProcessing) return;
-
-            // Smooth scroll down
-            window.scrollBy({ top: 600, behavior: 'smooth' });
-
-        }, SCROLL_DELAY);
-    }
-
-    function stopAutoScroll() {
-        if (scrollInterval) {
-            clearInterval(scrollInterval);
-            scrollInterval = null;
-            console.log('[Echo Reddit Driver] Stopped auto-scroll');
         }
     }
 
@@ -423,16 +580,11 @@
 
             if (!commented.includes(postId)) {
                 commented.push(postId);
-
-                // Keep only last 500 post IDs to prevent storage bloat
-                if (commented.length > 500) {
-                    commented.shift();
-                }
-
+                if (commented.length > 500) commented.shift();
                 await chrome.storage.local.set({ [STORAGE_KEY]: commented });
             }
         } catch (error) {
-            console.error('[Echo Reddit Driver] Error saving commented post:', error);
+            console.error('[Echo Reddit Driver] Error saving:', error);
         }
     }
 
@@ -442,25 +594,40 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function random(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function showNotification(text) {
+        const existing = document.querySelector('.echo-status-notification');
+        if (existing) existing.remove();
+
+        const notification = document.createElement('div');
+        notification.className = 'echo-status-notification';
+        notification.textContent = text;
+        notification.style.cssText = `
+            position: fixed; bottom: 20px; right: 20px;
+            background: #1a1a2e; color: white; padding: 12px 20px;
+            border-radius: 8px; z-index: 999999;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 5000);
+    }
+
     async function logActivity(text) {
         try {
             const { activityLog } = await chrome.storage.local.get('activityLog');
             const log = activityLog || [];
             log.unshift({ text, timestamp: Date.now(), platform: 'reddit' });
-
-            // Keep only last 50 entries
             if (log.length > 50) log.pop();
-
             await chrome.storage.local.set({ activityLog: log });
-
-            // Notify popup if open
             chrome.runtime.sendMessage({ type: 'ACTIVITY_UPDATE', log }).catch(() => { });
-        } catch (error) {
-            // Ignore
-        }
+        } catch (error) { }
     }
 
-    // Initialize when DOM is ready
+    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
