@@ -31,11 +31,11 @@ class AutoPilotDriver {
         // Creator tracking
         this.watchedCreators = [];
         this.processedPosts = new Set();
-        this.randomCommentChance = 0.08; // 8% chance for non-watched
+        this.randomCommentChance = 0.30; // 30% chance for non-watched posts
 
         // Scroll tracking
         this.noNewPostsCount = 0;
-        this.maxNoNewPosts = 5;
+        this.maxNoNewPosts = 10; // Allow more scrolls before giving up
     }
 
     async init() {
