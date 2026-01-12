@@ -70,8 +70,6 @@
     let commentBoxObserver = null;
 
     function setupManualButtonSystem() {
-        console.log('[Echo] Setting up manual button system. isActive:', isActive, 'isAutoPilot:', isAutoPilot);
-
         // Watch for comment boxes appearing
         commentBoxObserver = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
@@ -80,10 +78,7 @@
                         // Check if it's a comment box
                         const commentBoxes = node.matches?.(SELECTORS.commentForm) ? [node] : node.querySelectorAll?.(SELECTORS.commentForm) || [];
                         commentBoxes.forEach(box => {
-                            console.log('[Echo] Comment box detected. isAutoPilot:', isAutoPilot);
-                            // Manual button only depends on autopilot state, not isActive
-                            if (!isAutoPilot) {
-                                console.log('[Echo] Injecting manual button');
+                            if (!isAutoPilot && isActive) {
                                 injectManualButton(box);
                             }
                         });
@@ -95,7 +90,7 @@
         commentBoxObserver.observe(document.body, { childList: true, subtree: true });
 
         // Also check existing comment boxes
-        if (!isAutoPilot) {
+        if (!isAutoPilot && isActive) {
             document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
         }
     }
@@ -242,24 +237,81 @@
         document.body.appendChild(root);
     }
 
-    // Utility function for delays
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // IntersectionObserver for post detection (DISABLED - now using click-trigger)
+    // IntersectionObserver for post detection
     let observer = null;
-    let commentButtonListeners = new Map();
+    let debounceTimers = new Map();
 
     function startObserver() {
-        console.log('[Echo] Semi-auto mode: Waiting for comment button clicks');
+        if (observer) return;
 
-        // Add click listeners to all comment buttons
-        attachCommentButtonListeners();
+        console.log('[Echo] Starting post observer');
 
-        // Watch for new posts appearing and attach listeners to their comment buttons
-        const mutationObserver = new MutationObserver(() => {
-            attachCommentButtonListeners();
+        observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const post = entry.target;
+                const postId = post.getAttribute(SELECTORS.postUrn) || generatePostId(post);
+
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.8) {
+                    // Post is 80% visible - start debounce timer
+                    if (!debounceTimers.has(postId) && !processedPosts.has(postId)) {
+                        console.log('[Echo] Post in view:', postId);
+                        debounceTimers.set(postId, setTimeout(() => {
+                            handlePostVisible(post, postId);
+                        }, 2000)); // 2 second debounce
+                    }
+                } else {
+                    // Post scrolled away - cancel timer
+                    if (debounceTimers.has(postId)) {
+                        clearTimeout(debounceTimers.get(postId));
+                        debounceTimers.delete(postId);
+                    }
+                }
+            });
+        }, {
+            threshold: 0.8
+        });
+
+        // Observe existing posts
+        const posts = document.querySelectorAll(SELECTORS.feedPost);
+        console.log('[Echo] Found', posts.length, 'posts to observe');
+        posts.forEach(post => {
+            observer.observe(post);
+        });
+
+        // Observe new posts added to the DOM
+        startMutationObserver();
+    }
+
+    function stopObserver() {
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+        debounceTimers.forEach(timer => clearTimeout(timer));
+        debounceTimers.clear();
+        console.log('[Echo] Observer stopped');
+    }
+
+    // Mutation observer for dynamically loaded posts
+    let mutationObserver = null;
+
+    function startMutationObserver() {
+        if (mutationObserver) return;
+
+        mutationObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const posts = node.matches?.(SELECTORS.feedPost)
+                            ? [node]
+                            : node.querySelectorAll?.(SELECTORS.feedPost) || [];
+
+                        posts.forEach(post => {
+                            if (observer) observer.observe(post);
+                        });
+                    }
+                });
+            });
         });
 
         mutationObserver.observe(document.body, {
@@ -268,117 +320,15 @@
         });
     }
 
-    function attachCommentButtonListeners() {
-        const posts = document.querySelectorAll(SELECTORS.feedPost);
-        console.log('[Echo] Attaching listeners to', posts.length, 'posts');
-
-        let attachedCount = 0;
-        posts.forEach(post => {
-            const postId = post.getAttribute(SELECTORS.postUrn) || generatePostId(post);
-
-            // Skip if already has listener or already processed
-            if (commentButtonListeners.has(postId)) {
-                console.log('[Echo] Skipping post', postId, '- already has listener');
-                return;
-            }
-            if (processedPosts.has(postId)) {
-                console.log('[Echo] Skipping post', postId, '- already processed');
-                return;
-            }
-
-            // Find comment button
-            const buttonSelectors = SELECTORS.commentButton.split(', ');
-            let commentBtn = null;
-
-            for (const selector of buttonSelectors) {
-                commentBtn = post.querySelector(selector);
-                if (commentBtn) {
-                    console.log('[Echo] Found comment button with selector:', selector);
-                    break;
-                }
-            }
-
-            if (!commentBtn) {
-                // Fallback: find any button with "comment" in aria-label
-                const allButtons = post.querySelectorAll('button');
-                for (const btn of allButtons) {
-                    const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
-                    const text = btn.textContent?.toLowerCase() || '';
-                    if (ariaLabel.includes('comment') || text.includes('comment')) {
-                        commentBtn = btn;
-                        console.log('[Echo] Found comment button via fallback');
-                        break;
-                    }
-                }
-            }
-
-            if (commentBtn) {
-                const handler = async (event) => {
-                    console.log('[Echo] 🎯 Comment button clicked! Processing post:', postId);
-
-                    // Don't prevent default - let LinkedIn open the comment box
-                    // Wait for comment box to appear
-                    await sleep(800);
-
-                    // NOW trigger the generation
-                    await handlePostVisible(post, postId);
-                };
-
-                // Use capture phase to ensure we run BEFORE LinkedIn's handlers
-                commentBtn.addEventListener('click', handler, { once: true, capture: true });
-                commentButtonListeners.set(postId, { handler, button: commentBtn });
-                attachedCount++;
-                console.log('[Echo] ✅ Attached listener to post:', postId);
-            } else {
-                console.log('[Echo] ⚠️ No comment button found for post:', postId);
-            }
-        });
-
-        console.log('[Echo] Attached listeners to', attachedCount, 'posts');
-    }
-
-    function stopObserver() {
-        // Disconnect mutation observer if it exists
-        // The mutation observer is created inside startObserver, so we need to find a way to stop it.
-        // For now, we'll just clear the comment button listeners.
-        commentButtonListeners.forEach((handler, postId) => {
-            const post = document.querySelector(`[${SELECTORS.postUrn}="${postId}"], #echo-post-${postId.split('-')[2]}-${postId.split('-')[3]}`);
-            if (post) {
-                const buttonSelectors = SELECTORS.commentButton.split(', ');
-                let commentBtn = null;
-                for (const selector of buttonSelectors) {
-                    commentBtn = post.querySelector(selector);
-                    if (commentBtn) break;
-                }
-                if (!commentBtn) {
-                    const allButtons = post.querySelectorAll('button');
-                    for (const btn of allButtons) {
-                        const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
-                        const text = btn.textContent?.toLowerCase() || '';
-                        if (ariaLabel.includes('comment') || text.includes('comment')) {
-                            commentBtn = btn;
-                            break;
-                        }
-                    }
-                }
-                if (commentBtn) {
-                    commentBtn.removeEventListener('click', handler);
-                }
-            }
-        });
-        commentButtonListeners.clear();
-        console.log('[Echo] Observer stopped (click listeners removed)');
-    }
-
-    // Handle post becoming visible (NOW TRIGGERED BY COMMENT BUTTON CLICK)
+    // Handle post becoming visible
     async function handlePostVisible(post, postId) {
         if (!isActive || processedPosts.has(postId)) return;
 
-        console.log('[Echo] Processing post after comment click:', postId);
+        console.log('[Echo] Processing post:', postId);
         processedPosts.add(postId);
         currentPostElement = post;
 
-        // Add watching indicator (eye icon)
+        // Add watching indicator
         addWatchingIndicator(post);
 
         // Extract post content
@@ -388,6 +338,15 @@
         if (!postData.content || postData.content.length < 10) {
             console.log('[Echo] No content found in post or content too short');
             removeWatchingIndicator(post);
+            return;
+        }
+
+        // Open comment box first
+        const boxOpened = await openCommentBox(post);
+        if (!boxOpened) {
+            console.log('[Echo] Failed to open comment box');
+            removeWatchingIndicator(post);
+            showNotification('Could not open comment box', 'error');
             return;
         }
 
@@ -409,13 +368,13 @@
                 await insertComment(post, response.comment);
             } else if (response?.error) {
                 console.error('[Echo] API Error:', response.error);
-                removeWatchingIndicator(post);
+                showNotification(`Error: ${response.error}`, 'error');
                 removeThinkingState(post);
-                showNotification(response.error, 'error');
+                removeWatchingIndicator(post);
             }
         } catch (error) {
-            console.error('[Echo] Error processing post:', error);
-            showNotification('Error generating comment', 'error');
+            console.error('[Echo] Error generating comment:', error);
+            showNotification('Failed to generate comment', 'error');
             removeThinkingState(post);
             removeWatchingIndicator(post);
         }
