@@ -384,6 +384,8 @@
     align-items: center;
     gap: 12px;
     padding: 8px 0;
+    max-width: 240px;
+    /* Limit width to prevent overflow */
 }
 
 .modern-slider {

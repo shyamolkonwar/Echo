@@ -65,6 +65,7 @@ class EchoPopup {
 
         // System Configs
         this.elements.delayTimer = document.getElementById('delay-timer');
+        this.elements.scrollSpeed = document.getElementById('scroll-speed');
 
         // Onboarding
         this.elements.onboardingSteps = document.querySelectorAll('.onboarding-step');
@@ -224,7 +225,7 @@ class EchoPopup {
 
     async loadSettings() {
         const data = await chrome.storage.local.get([
-            'apiKey', 'apiProvider', 'platforms', 'isActive', 'delayTimer'
+            'apiKey', 'apiProvider', 'platforms', 'isActive', 'delayTimer', 'scrollSpeed'
         ]);
 
         const platforms = data.platforms || {
@@ -242,6 +243,7 @@ class EchoPopup {
         }
 
         if (this.elements.delayTimer) this.elements.delayTimer.value = data.delayTimer || 2;
+        if (this.elements.scrollSpeed) this.elements.scrollSpeed.value = data.scrollSpeed || 2;
 
         // 2. LinkedIn Configs
         if (platforms.linkedin) {
@@ -281,6 +283,7 @@ class EchoPopup {
         const apiKey = this.elements.apiKey.value.trim();
         const apiProvider = Array.from(this.elements.apiProvider).find(r => r.checked)?.value || 'openai';
         const delayTimer = parseInt(this.elements.delayTimer.value) || 2;
+        const scrollSpeed = parseInt(this.elements.scrollSpeed.value) || 2;
 
         // Get existing platforms data to merge
         const { platforms } = await chrome.storage.local.get('platforms');
@@ -307,6 +310,7 @@ class EchoPopup {
             apiKey,
             apiProvider,
             delayTimer,
+            scrollSpeed,
             platforms: updatedPlatforms
         });
 
