@@ -11,7 +11,10 @@
         "tabs"
     ],
     "host_permissions": [
-        "*://www.linkedin.com/*"
+        "*://www.linkedin.com/*",
+        "*://api.openai.com/*",
+        "*://generativelanguage.googleapis.com/*",
+        "*://api.deepseek.com/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
