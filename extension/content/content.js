@@ -643,8 +643,8 @@
         document.querySelectorAll('.echo-thinking').forEach(el => el.remove());
     }
 
-    // Find the active comment editor
-    function findCommentEditor() {
+    // Find the active comment editor (scoped to a specific post)
+    function findCommentEditor(post = null) {
         const selectors = [
             '.ql-editor[contenteditable="true"]',
             '.comments-comment-box div[contenteditable="true"]',
@@ -653,12 +653,18 @@
             'div[data-placeholder*="comment"][contenteditable="true"]'
         ];
 
+        // If post is provided, search within the post's container
+        const searchContext = post || document;
+
         for (const selector of selectors) {
-            const editor = document.querySelector(selector);
+            const editor = searchContext.querySelector(selector);
             if (editor && editor.offsetParent !== null) {
+                console.log('[Echo] Found editor within', post ? 'post context' : 'document');
                 return editor;
             }
         }
+
+        console.log('[Echo] No visible editor found');
         return null;
     }
 
@@ -669,7 +675,7 @@
         removeWatchingIndicator(post);
         removeThinkingState(post);
 
-        const editor = findCommentEditor();
+        const editor = findCommentEditor(post);
         if (!editor) {
             console.log('[Echo] Comment editor not found for insertion');
             showNotification('Could not find comment editor', 'error');
