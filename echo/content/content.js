@@ -1,8 +1,17 @@
 // Echo Chrome Extension - Content Script
-// Handles LinkedIn DOM manipulation, post detection, and comment insertion
+// Handles multi-platform DOM manipulation, post detection, and comment insertion
 
 (function () {
     'use strict';
+
+    // Check if we're on a supported platform
+    if (!window.isSupportedPlatform || !window.isSupportedPlatform()) {
+        console.log('[Echo] Not on a supported platform, exiting');
+        return;
+    }
+
+    const CURRENT_PLATFORM = window.getPlatform();
+    console.log(`[Echo] Running on platform: ${CURRENT_PLATFORM}`);
 
     // State
     let isActive = false;
@@ -366,7 +375,8 @@
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData,
-                quickTone
+                quickTone,
+                platform: CURRENT_PLATFORM
             });
 
 
@@ -386,8 +396,14 @@
         }
     }
 
-    // Extract data from a post
+    // Extract data from a post (platform-aware)
     async function extractPostData(post) {
+        // If on Reddit, use Reddit extraction
+        if (CURRENT_PLATFORM === 'reddit' && window.extractRedditPostData) {
+            return window.extractRedditPostData(post);
+        }
+
+        // LinkedIn extraction (existing logic)
         let authorName = '';
         let content = '';
         let hasImage = false;

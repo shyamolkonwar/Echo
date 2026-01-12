@@ -46,7 +46,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleGenerateComment(message, sendResponse) {
 
     try {
-        const { postData, quickTone, retry } = message;
+        const { postData, quickTone, retry, platform } = message;
 
         // Get user settings
         const settings = await chrome.storage.local.get([
@@ -61,8 +61,10 @@ async function handleGenerateComment(message, sendResponse) {
             return;
         }
 
-        // Build the prompt
-        const prompt = buildPrompt(postData, quickTone, settings);
+        // Build the prompt (platform-specific)
+        const prompt = platform === 'reddit'
+            ? buildRedditPrompt(postData, quickTone, settings)
+            : buildPrompt(postData, quickTone, settings);
 
         // Call the appropriate API (vision or text)
         let comment;
@@ -175,6 +177,129 @@ Generate ONLY the final comment. No explanations. No quotes. NO EM DASHES.`;
     const userPrompt = `Post by ${postData.authorName}:\n"${postData.content}"\n\nWrite an engaging comment.`;
 
     return { systemPrompt, userPrompt };
+}
+
+// ==================== REDDIT-SPECIFIC PROMPT ====================
+function buildRedditPrompt(postData, quickTone, settings) {
+    const userTone = settings.userTone || settings.voiceDna || 'professional and thoughtful';
+    const subreddit = postData.subreddit || 'unknown';
+    const flair = postData.flair || '';
+    const hasImage = postData.hasImage === true;
+
+    // Subreddit-specific cultural rules
+    const subredditRules = getSubredditRules(subreddit, flair);
+
+    const systemPrompt = `# SYSTEM IDENTITY & CORE DIRECTIVE
+You are **Echo**, a Reddit conversation expert. Your goal is to generate authentic, valuable Reddit comments that blend seamlessly with the community culture.
+
+# PLATFORM: REDDIT
+You are commenting on Reddit in the subreddit **r/${subreddit}**.
+
+# SECTION 1: REDDIT-SPECIFIC RULES (CRITICAL)
+
+### 1.1 Markdown Formatting
+- Use Reddit-flavored Markdown for formatting
+- **bold** for emphasis, *italic* for subtle emphasis
+- Use bullet points with - or * when listing
+- NEVER use HTML tags
+
+### 1.2 Emoji Policy (STRICT)
+- Do NOT use emojis (Reddit culture hates emojis)
+- Exception: 🗿 (moai) or 🚀 (rocket) ONLY in r/wallstreetbets or meme subreddits
+- When in doubt, NO EMOJIS
+
+### 1.3 Banned Reddit Openers
+NEVER start with: "Great post", "Thanks for sharing", "This!", "Came here to say this", "Underrated comment"
+**Instead:** Jump straight to the point with value
+
+### 1.4 No Signature
+NEVER sign your name or add a signature at the end
+
+### 1.5 Tone Matching
+${subredditRules}
+
+${flair.toLowerCase().includes('serious') ? `
+### 1.6 SERIOUS FLAIR DETECTED
+- This post has a "Serious" flair
+- Use formal, factual tone
+- No jokes, no sarcasm
+- Provide sources or citations if making claims` : ''}
+
+# SECTION 2: POST CONTEXT
+**Post Title:** "${postData.title || ''}"
+**Post Body:** "${postData.body || ''}"
+**Subreddit:** r/${subreddit}
+${flair ? `**Flair:** ${flair}` : ''}
+
+${hasImage ? `
+# SECTION 3: IMAGE PRESENT
+The post contains an image. Reference specific visual details if relevant to your comment.` : ''}
+
+# SECTION 3: USER PERSONA
+**YOUR VOICE:** "${userTone}"
+Adapt this voice to fit r/${subreddit}'s culture while maintaining your core personality.
+
+# SECTION 4: VALUE-ADD REQUIREMENT
+Your comment must:
+1. Add new information or perspective
+2. Ask a thought-provoking question, OR
+3. Share a relevant personal experience
+
+Do NOT just agree or restate the post.
+
+# SECTION 5: LENGTH
+- Target: 20-40 words for casual subreddits
+- Max: 100 words for serious/academic subreddits
+- Keep it concise and punchy
+
+Generate ONLY the final comment in Markdown format. No explanations. No emojis (unless explicitly allowed). No signature.`;
+
+    const userPrompt = `Generate a Reddit comment for this post.`;
+
+    return { systemPrompt, userPrompt };
+}
+
+// Get subreddit-specific cultural rules
+function getSubredditRules(subreddit, flair) {
+    const sub = subreddit.toLowerCase();
+
+    // Specific subreddit rules
+    const rules = {
+        'funny': 'Be witty and short. Crack a joke or add a punchline. Keep it light.',
+        'memes': 'Reference meme culture. Be ironic. Very casual tone.',
+        'science': 'Be strictly factual and formal. Cite sources if possible. No jokes.',
+        'askscience': 'Highly technical and academic. Provide detailed explanations with sources.',
+        'askhistorians': 'Academic formal tone REQUIRED. Must cite sources. Long-form answers expected.',
+        'explainlikeimfive': 'Use simple language and analogies. Explain like talking to a 5-year-old.',
+        'programming': 'Technical but conversational. Reference code or best practices.',
+        'webdev': 'Tech-savvy but practical. Share real-world experience.',
+        'entrepreneur': 'Practical business advice. Share specific tactics or experiences.',
+        'saas': 'B2B software focus. Share metrics, growth tactics, or technical insights.',
+        'marketing': 'Data-driven insights. Share specific campaign results or tactics.',
+        'wallstreetbets': 'EXTREMELY casual. Use slang like "stonks", "apes", "diamond hands". 🚀 emoji allowed.',
+        'cryptocurrency': 'Mix of technical and speculative. Use crypto terminology.',
+        'fitness': 'Supportive and practical. Share workout tips or personal progress.',
+        'personalfinance': 'Conservative financial advice. Be helpful and non-judgmental.',
+    };
+
+    // Check for exact match
+    if (rules[sub]) {
+        return `**Subreddit Culture:** ${rules[sub]}`;
+    }
+
+    // Check for partial matches
+    if (sub.includes('ask')) {
+        return `**Subreddit Culture:** Q&A format. Provide helpful, direct answers. Be informative.`;
+    }
+    if (sub.includes('tech') || sub.includes('coding') || sub.includes('dev')) {
+        return `**Subreddit Culture:** Technical community. Use specific terminology. Share code or examples.`;
+    }
+    if (sub.includes('business') || sub.includes('startup')) {
+        return `**Subreddit Culture:** Professional business tone. Share practical insights and metrics.`;
+    }
+
+    // Default rule
+    return `**Subreddit Culture:** Be authentic and conversational. Match the tone of other comments in r/${subreddit}.`;
 }
 
 // Call OpenAI API

@@ -43,6 +43,11 @@ class EchoPopup {
         this.elements.delayTimer = document.getElementById('delay-timer');
         this.elements.saveSettings = document.getElementById('save-settings');
 
+        // Platform Selector
+        this.elements.platformOptions = document.querySelectorAll('input[name="platform"]');
+        this.elements.redditSettings = document.getElementById('reddit-settings');
+        this.elements.subredditInput = document.getElementById('subreddit-input');
+
         // Onboarding
         this.elements.onboardingSteps = document.querySelectorAll('.onboarding-step');
         this.elements.onboardProvider = document.getElementById('onboard-provider');
@@ -86,6 +91,16 @@ class EchoPopup {
 
         // Complete Onboarding
         this.elements.completeOnboarding.addEventListener('click', () => this.completeOnboarding());
+
+        // Platform Selector
+        this.elements.platformOptions.forEach(option => {
+            option.addEventListener('change', (e) => this.handlePlatformChange(e));
+        });
+
+        // Subreddit Input (auto-save on blur)
+        if (this.elements.subredditInput) {
+            this.elements.subredditInput.addEventListener('blur', () => this.saveRedditSettings());
+        }
     }
 
     showView(view) {
@@ -162,7 +177,9 @@ class EchoPopup {
             'delayTimer',
             'isActive',
             'isAutoPilot',
-            'quickTone'
+            'quickTone',
+            'platform',
+            'reddit_watched_subreddits'
         ]);
 
         // Populate settings form
@@ -205,6 +222,22 @@ class EchoPopup {
                 option.checked = option.value === settings.quickTone;
             });
         }
+
+        // Set platform
+        const platform = settings.platform || 'linkedin';
+        this.elements.platformOptions.forEach(option => {
+            option.checked = option.value === platform;
+        });
+
+        // Show/hide Reddit settings
+        if (this.elements.redditSettings) {
+            this.elements.redditSettings.style.display = platform === 'reddit' ? 'block' : 'none';
+        }
+
+        // Load Reddit subreddits
+        if (settings.reddit_watched_subreddits && this.elements.subredditInput) {
+            this.elements.subredditInput.value = settings.reddit_watched_subreddits.join(', ');
+        }
     }
 
     async saveSettings() {
@@ -236,10 +269,12 @@ class EchoPopup {
         await chrome.storage.local.set({ isActive });
         this.updateStatusIndicator(isActive);
 
-        // Notify content script (if on LinkedIn)
+        // Notify content script
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id && tab?.url?.includes('linkedin.com')) {
+            const platform = tab?.url?.includes('reddit.com') ? 'reddit' : 'linkedin';
+
+            if (tab?.id && (tab?.url?.includes('linkedin.com') || tab?.url?.includes('reddit.com'))) {
                 chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_ACTIVE', isActive }).catch(() => {
                     // Content script not loaded on this page, which is fine
                 });
@@ -265,10 +300,10 @@ class EchoPopup {
         const quickTone = e.target.value;
         await chrome.storage.local.set({ quickTone });
 
-        // Notify content script (if on LinkedIn)
+        // Notify content script
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id && tab?.url?.includes('linkedin.com')) {
+            if (tab?.id && (tab?.url?.includes('linkedin.com') || tab?.url?.includes('reddit.com'))) {
                 chrome.tabs.sendMessage(tab.id, { type: 'UPDATE_TONE', quickTone }).catch(() => {
                     // Content script not loaded
                 });
@@ -278,6 +313,31 @@ class EchoPopup {
         }
     }
 
+    async handlePlatformChange(e) {
+        const platform = e.target.value;
+        await chrome.storage.local.set({ platform });
+
+        // Show/hide Reddit settings
+        if (this.elements.redditSettings) {
+            this.elements.redditSettings.style.display = platform === 'reddit' ? 'block' : 'none';
+        }
+
+        this.showToast(`Platform switched to ${platform === 'reddit' ? 'Reddit' : 'LinkedIn'}`);
+    }
+
+    async saveRedditSettings() {
+        if (!this.elements.subredditInput) return;
+
+        const input = this.elements.subredditInput.value.trim();
+        const subreddits = input
+            .split(',')
+            .map(s => s.trim().toLowerCase().replace(/^r\//, ''))
+            .filter(s => s.length > 0);
+
+        await chrome.storage.local.set({ reddit_watched_subreddits: subreddits });
+        this.showToast('Subreddits saved!');
+    }
+
     async handleAutoPilotToggle(e) {
         const isAutoPilot = e.target.checked;
         await chrome.storage.local.set({ isAutoPilot });
@@ -285,13 +345,15 @@ class EchoPopup {
         // Notify content script to start/stop auto-pilot
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.id && tab?.url?.includes('linkedin.com')) {
+            const isSupported = tab?.url?.includes('linkedin.com') || tab?.url?.includes('reddit.com');
+
+            if (tab?.id && isSupported) {
                 chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_AUTOPILOT', isAutoPilot }).catch(() => {
-                    this.showToast('Open LinkedIn to use Auto-Pilot', 'error');
+                    this.showToast('Open a supported platform to use Auto-Pilot', 'error');
                     e.target.checked = false;
                 });
             } else {
-                this.showToast('Open LinkedIn to use Auto-Pilot', 'error');
+                this.showToast('Open LinkedIn or Reddit to use Auto-Pilot', 'error');
                 e.target.checked = false;
                 await chrome.storage.local.set({ isAutoPilot: false });
             }

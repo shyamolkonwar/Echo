@@ -1,11 +1,12 @@
-# Echo - LinkedIn Ghost Writer 🤖
+# Echo - Multi-Platform Ghost Writer 🤖
 
-**Your voice, echoed.** An AI-powered LinkedIn comment assistant with vision support, autonomous verification, and human-like behavior.
+**Your voice, echoed.** An AI-powered comment assistant for LinkedIn & Reddit with vision support, autonomous verification, and human-like behavior.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
+- 🌐 **Multi-Platform Support** - Works seamlessly on both LinkedIn and Reddit
 - 🧠 **Smart AI Comments** - Generates contextual, non-bot-like comments using GPT-4o, Gemini 1.5 Flash, or DeepSeek
 - 👁️ **Vision Support** - Analyzes images in posts to reference specific visual details
 - 🎯 **Manual Generate Button** - On-demand AI comment generation with a single click
@@ -16,6 +17,14 @@
 - ✅ **Smart Verification** - Confirms successful posting before moving on
 - 🔒 **100% Local** - All data stored locally, no cloud dependencies
 - 🛡️ **Duplicate Prevention** - Tracks commented posts to avoid duplicate comments
+
+### Reddit-Specific Features
+- 📝 **Markdown Support** - Comments formatted in Reddit-flavored Markdown
+- 🎯 **Subreddit Watchlist** - Only comment on posts from specified subreddits
+- 🧩 **Cultural Intelligence** - Adapts tone to each subreddit's culture (r/science vs r/funny)
+- 🏷️ **Flair Detection** - Automatically switches to formal tone for "Serious" flairs
+- ⏱️ **Smart Rate Limiting** - 10-15 min delays to avoid Reddit shadowbans
+- 🚫 **Anti-Emoji** - Respects Reddit's no-emoji culture (except 🗿 🚀 in specific contexts)
 
 ## Installation
 
@@ -72,6 +81,17 @@ In the popup, enter your persona in the "My Voice" field. Examples:
    - Type comments slowly (human-like)
    - Verify successful posting
    - Skip ads and promoted content
+
+### Reddit Mode
+1. Click the Echo extension icon
+2. Select **Reddit** in the Platform selector
+3. Enter your watched subreddits (e.g., `SaaS, webdev, marketing`)
+4. Toggle **Echo Active** ON
+5. Navigate to Reddit and scroll
+6. Echo will only comment on posts from your watched subreddits
+7. Comments will be formatted in Markdown and adapt to each subreddit's culture
+
+**Important:** Ensure you have 50+ karma before using Reddit automation to avoid shadowbans.
 
 ## Project Structure
 
