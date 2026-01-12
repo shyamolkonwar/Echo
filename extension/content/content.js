@@ -178,6 +178,12 @@
                 isActive = message.isActive;
                 if (isActive) {
                     startObserver();
+
+                    // Inject manual buttons into existing comment boxes
+                    if (!isAutoPilot) {
+                        document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
+                    }
+
                     showNotification('Echo is now active. Scroll your feed!');
                 } else {
                     stopObserver();
