@@ -116,77 +116,77 @@
     margin: 0 0 0 0;
 }
 
-/* ==================== SETTINGS SIDEBAR ==================== */
+/* ==================== SETTINGS SIDEBAR (Icon Only) ==================== */
 
 .settings-sidebar {
-    width: 160px;
+    width: 60px;
     background: #f9fafb;
     border-right: 1px solid #e5e7eb;
-    padding: 16px 12px;
+    padding: 12px 8px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
-.sidebar-section {
-    margin-bottom: 16px;
+.sidebar-divider {
+    width: 32px;
+    height: 1px;
+    background: #e5e7eb;
+    margin: 4px 0;
 }
 
-.sidebar-category {
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 0 8px 8px;
-}
-
-/* Navigation Items - The Key Component */
+/* Navigation Items - Icon Only */
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 8px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     border: none;
     background: transparent;
-    color: #6b7280;
-    font-weight: 500;
-    font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
-    text-align: left;
+    padding: 0;
 }
 
 .nav-item:hover {
     background: #f3f4f6;
-    color: #374151;
 }
 
 .nav-item.active {
     background: white;
-    color: #111827;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.nav-item.active .nav-icon {
-    filter: grayscale(0%);
+.nav-icon-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.nav-item:hover .nav-icon-img,
+.nav-item.active .nav-icon-img {
+    opacity: 1;
 }
 
 .nav-item.add-platform {
-    color: #9ca3af;
-    border: 1px dashed #d1d5db;
-    margin-top: 8px;
+    border: 2px dashed #d1d5db;
+    background: transparent;
 }
 
 .nav-item.add-platform:hover {
-    color: #6b7280;
     border-color: #9ca3af;
 }
 
-.nav-icon {
-    font-size: 14px;
-    filter: grayscale(50%);
+.add-icon {
+    font-size: 20px;
+    color: #9ca3af;
+    font-weight: 300;
 }
 
 /* ==================== SETTINGS CANVAS ==================== */
