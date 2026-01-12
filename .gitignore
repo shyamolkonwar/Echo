@@ -45,7 +45,6 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 docs/
-images/
 
 # ==================== Build / Distribution ====================
 # Extension builds
