@@ -933,7 +933,10 @@ class AutoPilotDriver {
             '.comments-comment-texteditor button[type="submit"]',
             '.comments-comment-box button.artdeco-button--primary',
             'button.artdeco-button--primary[class*="comment"]',
-            'div.comments-comment-box__button-group button'
+            'div.comments-comment-box__button-group button',
+            'form.comments-comment-box__form button[type="submit"]',
+            'form.comments-comment-box__form button.artdeco-button--primary',
+            '.comments-comment-box__button-group button.artdeco-button--primary'
         ];
 
         // Retry loop - 5 attempts
