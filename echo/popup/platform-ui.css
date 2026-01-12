@@ -382,19 +382,26 @@
 .slider-wrapper.modern {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     padding: 8px 0;
-    max-width: 240px;
-    /* Limit width to prevent overflow */
+    max-width: 200px;
+    /* Reduced to prevent overflow */
+}
+
+.slider-wrapper.modern .slider-label {
+    font-size: 11px;
+    color: #6b7280;
+    white-space: nowrap;
 }
 
 .modern-slider {
     flex: 1;
     -webkit-appearance: none;
-    height: 6px;
+    height: 4px;
     background: #e5e7eb;
-    border-radius: 3px;
+    border-radius: 2px;
     outline: none;
+    min-width: 60px;
 }
 
 .modern-slider::-webkit-slider-thumb {
