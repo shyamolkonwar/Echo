@@ -32,41 +32,6 @@
 
         <!-- Main View -->
         <main id="main-view" class="view active">
-            <!-- Status Card -->
-            <div class="status-card">
-                <div class="status-indicator" id="status-indicator">
-                    <span class="status-dot"></span>
-                    <span class="status-text">PAUSED</span>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="master-toggle">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-
-            <!-- Auto-Pilot Card -->
-            <div class="status-card autopilot-card">
-                <div class="status-indicator" id="autopilot-indicator">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        style="width: 16px; height: 16px; margin-right: 8px;">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
-                    <span class="status-text">Auto-Pilot</span>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="autopilot-toggle">
-                    <span class="toggle-slider autopilot-slider"></span>
-                </label>
-            </div>
-
-            <!-- Dashboard Button -->
-            <button id="open-dashboard" class="dashboard-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 20V10M12 20V4M6 20v-6" />
-                </svg>
-                Open Dashboard
-            </button>
-
             <!-- Platform Bar (Icon Navigation) -->
             <div class="platform-bar">
                 <button class="platform-icon active" data-platform="linkedin" title="LinkedIn">
@@ -82,55 +47,126 @@
                             d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
                     </svg>
                 </button>
+                <button class="platform-icon-add" title="Add Platform">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                </button>
             </div>
 
             <!-- LinkedIn Context Card -->
             <div class="context-card" data-platform="linkedin">
-                <div class="platform-status">
-                    <span class="platform-name">📊 LinkedIn</span>
+                <div class="context-header">
+                    <span class="context-label">Active: LinkedIn</span>
                 </div>
-                <div class="control-group">
-                    <label class="control-label">Quick Tone</label>
-                    <select class="tone-select" data-platform="linkedin">
-                        <option value="professional">Professional</option>
-                        <option value="casual">Casual</option>
-                        <option value="supportive">Supportive</option>
-                    </select>
+
+                <div class="status-card">
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">PAUSED</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="master-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="status-card autopilot-card">
+                    <div class="status-indicator" id="autopilot-indicator">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            style="width: 16px; height: 16px; margin-right: 8px;">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        <span class="status-text">Auto-Pilot</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autopilot-toggle">
+                        <span class="toggle-slider autopilot-slider"></span>
+                    </label>
+                </div>
+
+                <div class="tone-selector">
+                    <span class="section-label">Current Tone</span>
+                    <div class="tone-options">
+                        <label class="tone-option">
+                            <input type="radio" name="quick-tone" value="professional" checked>
+                            <span class="tone-label">Professional</span>
+                        </label>
+                        <label class="tone-option">
+                            <input type="radio" name="quick-tone" value="casual">
+                            <span class="tone-label">Casual</span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
             <!-- Reddit Context Card -->
             <div class="context-card" data-platform="reddit" style="display: none;">
-                <div class="platform-status">
-                    <span class="platform-name">🤖 Reddit</span>
+                <div class="context-header">
+                    <span class="context-label">Active: Reddit</span>
                 </div>
-                <div class="control-group">
-                    <label class="control-label">Quick Tone</label>
-                    <select class="tone-select" data-platform="reddit">
-                        <option value="witty">Witty</option>
-                        <option value="casual">Casual</option>
-                        <option value="serious">Serious</option>
-                    </select>
+
+                <div class="status-card">
+                    <div class="status-indicator" id="reddit-status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">PAUSED</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="reddit-master-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
-                <div class="control-group">
-                    <label class="control-label">Watched Subreddits</label>
-                    <input type="text" class="subreddit-input" placeholder="e.g. SaaS, webdev, programming">
+
+                <div class="status-card autopilot-card">
+                    <div class="status-indicator">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            style="width: 16px; height: 16px; margin-right: 8px;">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        <span class="status-text">Auto-Pilot</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="reddit-autopilot-toggle">
+                        <span class="toggle-slider autopilot-slider"></span>
+                    </label>
                 </div>
-                <div class="reddit-warning">
-                    ⚠️ Rate limit: 10-15 min. Needs 50+ karma.
+
+                <div class="tone-selector">
+                    <span class="section-label">Current Tone</span>
+                    <div class="tone-options">
+                        <label class="tone-option">
+                            <input type="radio" name="reddit-tone" value="witty" checked>
+                            <span class="tone-label">Witty</span>
+                        </label>
+                        <label class="tone-option">
+                            <input type="radio" name="reddit-tone" value="snarky">
+                            <span class="tone-label">Snarky</span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            <!-- Activity Log -->
-            <div class="activity-section">
-                <span class="section-label">Recent Activity</span>
-                <div class="activity-log" id="activity-log">
-                    <div class="activity-empty">No activity yet. Enable Echo and browse LinkedIn.</div>
+            <!-- Footer (Always Visible) -->
+            <div class="popup-footer">
+                <!-- Dashboard Button -->
+                <button id="open-dashboard" class="dashboard-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 20V10M12 20V4M6 20v-6" />
+                    </svg>
+                    Open Dashboard
+                </button>
+
+                <!-- Activity Log -->
+                <div class="activity-section">
+                    <span class="section-label">Recent Activity</span>
+                    <div class="activity-log" id="activity-log">
+                        <div class="activity-empty">No activity yet. Enable Echo and browse.</div>
+                    </div>
                 </div>
             </div>
         </main>
 
-        <!-- Settings View -->
+        <!-- Settings View (Two-Column Layout) -->
         <main id="settings-view" class="view">
             <div class="settings-header">
                 <button id="back-btn" class="icon-btn">
@@ -141,72 +177,116 @@
                 <h2>Settings</h2>
             </div>
 
-            <div class="settings-form">
-                <!-- API Key -->
-                <div class="form-group">
-                    <label for="api-key">API Key</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
-                        <button id="toggle-key-visibility" class="icon-btn small" type="button">
-                            <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
-                        </button>
+            <div class="settings-container">
+                <!-- Left Sidebar Navigation -->
+                <nav class="settings-sidebar">
+                    <div class="sidebar-section">
+                        <span class="sidebar-category">GENERAL</span>
+                        <button class="settings-nav-item active" data-section="api">🔑 AI & Keys</button>
+                    </div>
+                    <div class="sidebar-section">
+                        <span class="sidebar-category">PLATFORMS</span>
+                        <button class="settings-nav-item" data-section="linkedin">👔 LinkedIn</button>
+                        <button class="settings-nav-item" data-section="reddit">🤖 Reddit</button>
+                    </div>
+                    <div class="sidebar-section">
+                        <button class="settings-nav-item" data-section="system">⚙️ System</button>
+                    </div>
+                </nav>
+
+                <!-- Right Content Area -->
+                <div class="settings-content">
+                    <!-- API & Keys Section -->
+                    <div class="settings-section active" data-section="api">
+                        <h3>AI Configuration</h3>
+                        <div class="form-group">
+                            <label for="api-key">API Key</label>
+                            <div class="input-wrapper">
+                                <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+                                <button id="toggle-key-visibility" class="icon-btn small" type="button">
+                                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>API Provider</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="api-provider" value="openai" checked>
+                                    <span>OpenAI</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="api-provider" value="gemini">
+                                    <span>Gemini</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="api-provider" value="deepseek">
+                                    <span>DeepSeek</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LinkedIn Section -->
+                    <div class="settings-section" data-section="linkedin">
+                        <h3>LinkedIn Persona</h3>
+                        <div class="form-group">
+                            <label for="linkedin-voice">My Voice</label>
+                            <p class="helper-text">Describe your LinkedIn commenting style.</p>
+                            <textarea id="linkedin-voice" rows="3"
+                                placeholder="I'm casual and witty. I use technical analogies but keep things accessible."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Response Length</label>
+                            <div class="slider-wrapper">
+                                <span class="slider-label">Short</span>
+                                <input type="range" id="linkedin-length" min="1" max="3" value="2">
+                                <span class="slider-label">Long</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reddit Section -->
+                    <div class="settings-section" data-section="reddit">
+                        <h3>Reddit Persona</h3>
+                        <div class="form-group">
+                            <label for="reddit-voice">My Voice</label>
+                            <p class="helper-text">Describe your Reddit commenting style (e.g., "Don't use emojis, be
+                                shorter").</p>
+                            <textarea id="reddit-voice" rows="3"
+                                placeholder="I'm a cynical dev who hates startup buzzwords..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="subreddit-filter">Subreddit Filter</label>
+                            <p class="helper-text">Subreddits to comment on (comma-separated)</p>
+                            <input type="text" id="subreddit-filter" placeholder="SaaS, webdev, programming">
+                        </div>
+                        <div class="form-group">
+                            <label for="subreddit-blacklist">Blacklisted Subreddits</label>
+                            <input type="text" id="subreddit-blacklist" placeholder="politics, news">
+                        </div>
+                    </div>
+
+                    <!-- System Section -->
+                    <div class="settings-section" data-section="system">
+                        <h3>System Settings</h3>
+                        <div class="form-group">
+                            <label>Typing Speed</label>
+                            <div class="slider-wrapper">
+                                <span class="slider-label">Fast</span>
+                                <input type="range" id="delay-timer" min="1" max="3" value="2">
+                                <span class="slider-label">Human</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <!-- API Provider -->
-                <div class="form-group">
-                    <label>API Provider</label>
-                    <div class="radio-group">
-                        <label class="radio-option">
-                            <input type="radio" name="api-provider" value="openai" checked>
-                            <span>OpenAI</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="api-provider" value="gemini">
-                            <span>Gemini</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="api-provider" value="deepseek">
-                            <span>DeepSeek</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- My Voice -->
-                <div class="form-group">
-                    <label for="user-tone">My Voice</label>
-                    <p class="helper-text">Describe your commenting style. Echo will adapt while maintaining
-                        professional quality.</p>
-                    <textarea id="user-tone" rows="3"
-                        placeholder="I'm casual and witty. I use technical analogies but keep things accessible."></textarea>
-                </div>
-
-                <!-- Response Length -->
-                <div class="form-group">
-                    <label>Response Length</label>
-                    <div class="slider-wrapper">
-                        <span class="slider-label">Short</span>
-                        <input type="range" id="response-length" min="1" max="3" value="2">
-                        <span class="slider-label">Long</span>
-                    </div>
-                </div>
-
-                <!-- Delay Timer -->
-                <div class="form-group">
-                    <label>Typing Speed</label>
-                    <div class="slider-wrapper">
-                        <span class="slider-label">Fast</span>
-                        <input type="range" id="delay-timer" min="1" max="3" value="2">
-                        <span class="slider-label">Human</span>
-                    </div>
-                </div>
-
-                <button id="save-settings" class="btn-primary">Save Settings</button>
             </div>
+
+            <button id="save-settings" class="btn-primary">Save All Settings</button>
         </main>
 
         <!-- Onboarding View -->
