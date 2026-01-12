@@ -242,7 +242,6 @@ class EchoPopup {
             if (tab?.id && tab?.url?.includes('linkedin.com')) {
                 chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_ACTIVE', isActive }).catch(() => {
                     // Content script not loaded on this page, which is fine
-                    console.log('Content script not available on current tab');
                 });
             }
         } catch (err) {

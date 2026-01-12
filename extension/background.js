@@ -33,7 +33,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message.type === 'LOG_ACTIVITY') {
         // Local logging only - no Supabase
-        console.log('[Echo Background] Activity logged locally:', message.data?.author_name);
     }
 
     if (message.type === 'ACTIVITY_UPDATE') {
@@ -45,8 +44,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function handleGenerateComment(message, sendResponse) {
-    console.log('[Echo Background] Handling comment generation request');
-    console.log('[Echo Background] Post data:', message.postData);
 
     try {
         const { postData, quickTone, retry } = message;
@@ -73,19 +70,16 @@ async function handleGenerateComment(message, sendResponse) {
 
         if (settings.apiProvider === 'gemini') {
             if (hasImage) {
-                console.log('[Echo Background] Using Gemini Vision API');
                 comment = await callGeminiVisionAPI(settings.apiKey, prompt, postData.imageData);
             } else {
                 comment = await callGeminiAPI(settings.apiKey, prompt);
             }
         } else if (settings.apiProvider === 'deepseek') {
             // DeepSeek uses OpenAI-compatible API (no vision support)
-            console.log('[Echo Background] Using DeepSeek API');
             comment = await callDeepSeekAPI(settings.apiKey, prompt, settings.responseLength);
         } else {
             // OpenAI (default)
             if (hasImage) {
-                console.log('[Echo Background] Using OpenAI Vision API');
                 comment = await callOpenAIVisionAPI(settings.apiKey, prompt, postData.imageData, settings.responseLength);
             } else {
                 comment = await callOpenAIAPI(settings.apiKey, prompt, settings.responseLength);
@@ -378,7 +372,6 @@ chrome.runtime.onInstalled.addListener((details) => {
             voiceDna: ''   // Keep for backward compatibility
         });
 
-        console.log('[Echo] Extension installed');
     }
 
     // Set up alarms

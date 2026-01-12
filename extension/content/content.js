@@ -26,7 +26,6 @@
 
     // Initialize extension
     async function init() {
-        console.log('[Echo] Content script initialized on LinkedIn');
 
         // Load initial settings and commented posts history
         const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'quickTone', 'commentedPosts']);
@@ -37,9 +36,7 @@
         // Load previously commented posts
         const commentedPostsArray = settings.commentedPosts || [];
         processedPosts = new Set(commentedPostsArray);
-        console.log('[Echo] Loaded', processedPosts.size, 'previously commented posts');
 
-        console.log('[Echo] Initial state - isActive:', isActive, 'isAutoPilot:', isAutoPilot);
 
         // Create root element for injected UI
         createEchoRoot();
@@ -48,11 +45,9 @@
         if (window.AutoPilotDriver) {
             autoPilotDriver = new window.AutoPilotDriver();
             await autoPilotDriver.init();
-            console.log('[Echo] Auto-pilot driver initialized');
 
             // Auto-resume if auto-pilot was running (e.g., after page refresh)
             if (isAutoPilot) {
-                console.log('[Echo] Resuming auto-pilot after page refresh...');
                 setTimeout(() => {
                     autoPilotDriver.start();
                 }, 2000); // Wait 2s for page to stabilize
@@ -75,7 +70,6 @@
     let commentBoxObserver = null;
 
     function setupManualButtonSystem() {
-        console.log('[Echo] Setting up manual button system (independent mode)');
 
         // Watch for comment boxes appearing - inject button for ANY new comment box
         commentBoxObserver = new MutationObserver((mutations) => {
@@ -105,7 +99,6 @@
             document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
         }
 
-        console.log('[Echo] Manual button system ready');
     }
 
     function injectManualButton(commentBox) {
@@ -125,14 +118,11 @@
 
         if (buttonGroup) {
             buttonGroup.appendChild(button);
-            console.log('[Echo] ✅ Manual button injected (button group)');
         } else if (editor && editor.parentElement) {
             editor.parentElement.insertBefore(button, editor);
-            console.log('[Echo] ✅ Manual button injected (before editor)');
         } else {
             // Fallback: append to comment box itself
             commentBox.appendChild(button);
-            console.log('[Echo] ✅ Manual button injected (fallback)');
         }
     }
 
@@ -188,7 +178,6 @@
 
     // Handle messages from popup/background
     function handleMessage(message, sender, sendResponse) {
-        console.log('[Echo] Received message:', message);
 
         switch (message.type) {
             case 'TOGGLE_ACTIVE':
@@ -209,7 +198,6 @@
 
             case 'TOGGLE_AUTOPILOT':
                 isAutoPilot = message.isAutoPilot;
-                console.log('[Echo] TOGGLE_AUTOPILOT:', isAutoPilot);
 
                 if (isAutoPilot && autoPilotDriver) {
                     // CRITICAL: Stop observer to prevent conflict with driver
@@ -265,7 +253,6 @@
     function startObserver() {
         if (observer) return;
 
-        console.log('[Echo] Starting post observer');
 
         observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -275,7 +262,6 @@
                 if (entry.isIntersecting && entry.intersectionRatio >= 0.8) {
                     // Post is 80% visible - start debounce timer
                     if (!debounceTimers.has(postId) && !processedPosts.has(postId)) {
-                        console.log('[Echo] Post in view:', postId);
                         debounceTimers.set(postId, setTimeout(() => {
                             handlePostVisible(post, postId);
                         }, 2000)); // 2 second debounce
@@ -294,7 +280,6 @@
 
         // Observe existing posts
         const posts = document.querySelectorAll(SELECTORS.feedPost);
-        console.log('[Echo] Found', posts.length, 'posts to observe');
         posts.forEach(post => {
             observer.observe(post);
         });
@@ -310,7 +295,6 @@
         }
         debounceTimers.forEach(timer => clearTimeout(timer));
         debounceTimers.clear();
-        console.log('[Echo] Observer stopped');
     }
 
     // Mutation observer for dynamically loaded posts
@@ -345,12 +329,10 @@
     async function handlePostVisible(post, postId) {
         if (!isActive || processedPosts.has(postId)) {
             if (processedPosts.has(postId)) {
-                console.log('[Echo] Skipping post - already commented:', postId);
             }
             return;
         }
 
-        console.log('[Echo] Processing post:', postId);
         processedPosts.add(postId);
 
         // Persist to storage
@@ -362,10 +344,8 @@
 
         // Extract post content
         const postData = await extractPostData(post);
-        console.log('[Echo] Extracted post data:', postData);
 
         if (!postData.content || postData.content.length < 10) {
-            console.log('[Echo] No content found in post or content too short');
             removeWatchingIndicator(post);
             return;
         }
@@ -373,7 +353,6 @@
         // Open comment box first
         const boxOpened = await openCommentBox(post);
         if (!boxOpened) {
-            console.log('[Echo] Failed to open comment box');
             removeWatchingIndicator(post);
             showNotification('Could not open comment box', 'error');
             return;
@@ -384,14 +363,12 @@
 
         // Request comment generation from background script
         try {
-            console.log('[Echo] Requesting comment generation...');
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData,
                 quickTone
             });
 
-            console.log('[Echo] Got response:', response);
 
             if (response?.comment) {
                 await insertComment(post, response.comment);
@@ -459,14 +436,12 @@
         // Strategy 1: Single image
         const singleImage = post.querySelector('img.feed-shared-image__image');
         if (singleImage && singleImage.src) {
-            console.log('[Echo] Found single image');
             return await captureImageAsBase64(singleImage);
         }
 
         // Strategy 2: Carousel (first slide only)
         const carouselImage = post.querySelector('.feed-shared-carousel__content img, .feed-shared-image-carousel img');
         if (carouselImage && carouselImage.src) {
-            console.log('[Echo] Found carousel image');
             return await captureImageAsBase64(carouselImage);
         }
 
@@ -557,7 +532,6 @@
 
     // Open comment box for a post
     async function openCommentBox(post) {
-        console.log('[Echo] Opening comment box...');
 
         // Try multiple selectors for comment button
         const buttonSelectors = SELECTORS.commentButton.split(', ');
@@ -566,7 +540,6 @@
         for (const selector of buttonSelectors) {
             commentBtn = post.querySelector(selector);
             if (commentBtn) {
-                console.log('[Echo] Found comment button with selector:', selector);
                 break;
             }
         }
@@ -579,14 +552,12 @@
                 const text = btn.textContent?.toLowerCase() || '';
                 if (ariaLabel.includes('comment') || text.includes('comment')) {
                     commentBtn = btn;
-                    console.log('[Echo] Found comment button via fallback search');
                     break;
                 }
             }
         }
 
         if (!commentBtn) {
-            console.log('[Echo] Comment button not found');
             return false;
         }
 
@@ -594,12 +565,10 @@
         await randomDelay(1000, 2000);
 
         // Click the comment button
-        console.log('[Echo] Clicking comment button');
         commentBtn.click();
 
         // Wait for comment form to appear
         const formAppeared = await waitForCommentForm(post, 5000);
-        console.log('[Echo] Comment form appeared:', formAppeared);
 
         return formAppeared;
     }
@@ -623,7 +592,6 @@
                 // Check in the entire document since comment box might be outside post
                 const editor = document.querySelector(selector);
                 if (editor && editor.offsetParent !== null) {
-                    console.log('[Echo] Found editor with selector:', selector);
                     return true;
                 }
             }
@@ -639,7 +607,6 @@
         // Find the comment editor anywhere on page
         const editor = findCommentEditor();
         if (!editor) {
-            console.log('[Echo] Cannot show thinking state - editor not found');
             return;
         }
 
@@ -675,30 +642,25 @@
         for (const selector of selectors) {
             const editor = searchContext.querySelector(selector);
             if (editor && editor.offsetParent !== null) {
-                console.log('[Echo] Found editor within', post ? 'post context' : 'document');
                 return editor;
             }
         }
 
-        console.log('[Echo] No visible editor found');
         return null;
     }
 
     // Insert comment into the editor using the QuillJS hack
     async function insertComment(post, comment) {
-        console.log('[Echo] Inserting comment:', comment);
 
         removeWatchingIndicator(post);
         removeThinkingState(post);
 
         const editor = findCommentEditor(post);
         if (!editor) {
-            console.log('[Echo] Comment editor not found for insertion');
             showNotification('Could not find comment editor', 'error');
             return;
         }
 
-        console.log('[Echo] Found editor:', editor);
 
         // Random delay before typing (0.5-1 seconds)
         await randomDelay(500, 1000);
@@ -721,14 +683,11 @@
             editor.focus();
             await sleep(50);
             insertionSuccess = document.execCommand('insertText', false, comment);
-            console.log('[Echo] execCommand result:', insertionSuccess);
         } catch (e) {
-            console.log('[Echo] execCommand failed:', e);
         }
 
         // Method 2: Direct innerHTML + events (if execCommand failed)
         if (!insertionSuccess || !editor.innerText.includes(comment.substring(0, 10))) {
-            console.log('[Echo] Trying direct insertion method');
             editor.innerHTML = `<p>${comment}</p>`;
 
             // Dispatch input event
@@ -748,7 +707,6 @@
 
         // Method 3: Simulate paste
         if (!editor.innerText.includes(comment.substring(0, 10))) {
-            console.log('[Echo] Trying clipboard simulation');
             try {
                 const clipboardData = new DataTransfer();
                 clipboardData.setData('text/plain', comment);
@@ -759,7 +717,6 @@
                 });
                 editor.dispatchEvent(pasteEvent);
             } catch (e) {
-                console.log('[Echo] Paste simulation failed:', e);
             }
         }
 
@@ -767,7 +724,6 @@
 
         // Verify insertion
         const inserted = editor.innerText.trim().length > 0;
-        console.log('[Echo] Text inserted:', inserted, 'Content:', editor.innerText.substring(0, 50));
 
         if (inserted) {
             // Add completion visual cue
@@ -870,7 +826,6 @@
             // Keep only last 500 posts to prevent storage bloat
             const trimmedPosts = posts.slice(-500);
             await chrome.storage.local.set({ commentedPosts: trimmedPosts });
-            console.log('[Echo] Saved commented post to storage:', postId);
         }
     }
 

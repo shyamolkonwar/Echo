@@ -50,7 +50,6 @@ class AutoPilotDriver {
                 }
                 // Immediate stop when isAutoPilot becomes false
                 if (changes.isAutoPilot && changes.isAutoPilot.newValue === false) {
-                    console.log('[Echo Driver] STOP signal received from storage');
                     this.shouldStop = true;
                     this.isRunning = false;
                 }
@@ -61,23 +60,19 @@ class AutoPilotDriver {
     async loadWatchedCreators() {
         const { watchedCreators } = await chrome.storage.local.get('watchedCreators');
         this.watchedCreators = watchedCreators || [];
-        console.log('[Echo Driver] Loaded', this.watchedCreators.length, 'watched creators');
     }
 
     async loadCommentedPosts() {
         const { commentedPosts } = await chrome.storage.local.get('commentedPosts');
         const commentedPostsArray = commentedPosts || [];
         this.processedPosts = new Set(commentedPostsArray);
-        console.log('[Echo Driver] Loaded', this.processedPosts.size, 'previously commented posts');
     }
 
     async start() {
         if (this.isRunning) {
-            console.log('[Echo Driver] Already running');
             return;
         }
 
-        console.log('[Echo Driver] ====== STARTING AUTO-PILOT v4.1 (ROBUST POSTING) ======');
         this.isRunning = true;
         this.shouldStop = false;
         this.scrollCount = 0;
@@ -94,8 +89,6 @@ class AutoPilotDriver {
     }
 
     stop() {
-        console.log('[Echo Driver] ====== STOPPING AUTO-PILOT ======');
-        console.log(`[Echo Driver] Session: ${this.commentCount} comments, ${this.scrollCount} scrolls`);
         this.isRunning = false;
         this.shouldStop = true;
         chrome.storage.local.set({ isAutoPilot: false });
@@ -105,7 +98,6 @@ class AutoPilotDriver {
     // Check if we should stop - call frequently
     checkShouldStop() {
         if (this.shouldStop || !this.isRunning) {
-            console.log('[Echo Driver] Stop condition detected');
             return true;
         }
         return false;
@@ -113,7 +105,6 @@ class AutoPilotDriver {
 
     // ==================== MAIN LOOP ====================
     async runMainLoop() {
-        console.log('[Echo Driver] Starting main loop...');
 
         while (this.isRunning && !this.shouldStop) {
             // Check stop at beginning of each iteration
@@ -127,7 +118,6 @@ class AutoPilotDriver {
             }
 
             // Step 1: Wait BEFORE scrolling (humans pause to think)
-            console.log('[Echo Driver] Pausing before scroll...');
             await this.humanWait('beforeScroll');
             if (this.checkShouldStop()) break;
 
@@ -135,10 +125,8 @@ class AutoPilotDriver {
             const previousPostCount = this.getVisiblePostsCount();
             await this.humanScroll();
             this.scrollCount++;
-            console.log(`[Echo Driver] Scroll #${this.scrollCount}`);
 
             // Step 3: Wait AFTER scrolling (reading time)
-            console.log('[Echo Driver] Reading feed...');
             await this.humanWait('afterScroll');
             if (this.checkShouldStop()) break;
 
@@ -146,7 +134,6 @@ class AutoPilotDriver {
             const currentPostCount = this.getVisiblePostsCount();
             if (currentPostCount <= previousPostCount) {
                 this.noNewPostsCount++;
-                console.log(`[Echo Driver] No new posts (${this.noNewPostsCount}/${this.maxNoNewPosts})`);
                 if (this.noNewPostsCount >= this.maxNoNewPosts) {
                     this.showNotification('No more new posts. Stopping.');
                     this.stop();
@@ -161,21 +148,17 @@ class AutoPilotDriver {
             if (this.checkShouldStop()) break;
 
             if (target) {
-                console.log('[Echo Driver] 🎯 Found target:', target.authorName);
 
                 // Step 6: Process post (SLOW, with all waits)
                 const success = await this.processPost(target);
 
                 if (success) {
                     this.commentCount++;
-                    console.log(`[Echo Driver] ✅ Comment #${this.commentCount} posted!`);
 
                     // LONG wait after successful comment
-                    console.log('[Echo Driver] 😴 Long pause after posting...');
                     await this.humanWait('afterPosting');
                 } else {
                     // Failed - make absolutely sure we clean up before next attempt
-                    console.log('[Echo Driver] ⚠️ Post failed, cleaning up...');
 
                     // Scroll to ensure any open comment box is dismissed
                     window.scrollBy(0, 200);
@@ -193,14 +176,12 @@ class AutoPilotDriver {
 
             // Check session limit
             if (this.commentCount >= this.maxCommentsPerSession) {
-                console.log('[Echo Driver] Session limit reached');
                 this.showNotification(`🎉 Done! ${this.commentCount} comments posted.`);
                 this.stop();
                 break;
             }
         }
 
-        console.log('[Echo Driver] Main loop ended');
         this.isRunning = false;
     }
 
@@ -212,7 +193,6 @@ class AutoPilotDriver {
             return;
         }
         const waitTime = this.random(buffer.min, buffer.max);
-        console.log(`[Echo Driver] Waiting ${Math.round(waitTime / 1000)}s...`);
         await this.sleep(waitTime);
     }
 
@@ -238,14 +218,12 @@ class AutoPilotDriver {
     // ==================== SAFETY CHECKS ====================
     checkSafetyLimits() {
         if (this.scrollCount >= this.maxScrolls) {
-            console.log('[Echo Driver] Max scrolls reached');
             this.showNotification('Session limit: Max scrolls');
             this.stop();
             return false;
         }
 
         if (Date.now() - this.startTime >= this.maxDuration) {
-            console.log('[Echo Driver] Max duration reached');
             this.showNotification('Session limit: Time');
             this.stop();
             return false;
@@ -325,7 +303,6 @@ class AutoPilotDriver {
         if (subDescription) {
             const text = subDescription.textContent?.toLowerCase() || '';
             if (text.includes('promoted')) {
-                console.log('[Echo Driver] 🚫 Ad detected: Promoted label');
                 return true;
             }
         }
@@ -333,7 +310,6 @@ class AutoPilotDriver {
         // Heuristic B: "Suggested" content check
         const headerText = post.querySelector('.update-components-actor__meta')?.textContent?.toLowerCase() || '';
         if (headerText.includes('suggested')) {
-            console.log('[Echo Driver] 🚫 Ad detected: Suggested content');
             return true;
         }
 
@@ -342,7 +318,6 @@ class AutoPilotDriver {
         const actorDescription = post.querySelector('.update-components-actor__description');
         if (followBtn && !actorDescription) {
             // Has follow button but no description = likely an ad
-            console.log('[Echo Driver] 🚫 Ad detected: Follow CTA without description');
             return true;
         }
 
@@ -351,7 +326,6 @@ class AutoPilotDriver {
         if (controlMenu) {
             const ariaLabel = controlMenu.getAttribute('aria-label')?.toLowerCase() || '';
             if (ariaLabel.includes('ad') || ariaLabel.includes('sponsored')) {
-                console.log('[Echo Driver] 🚫 Ad detected: Control menu aria-label');
                 return true;
             }
         }
@@ -404,24 +378,20 @@ class AutoPilotDriver {
 
     // ==================== MEDIA EXTRACTION (VISION) ====================
     async extractMediaFromPost(post) {
-        console.log('[Echo Driver] Checking for media in post...');
 
         // Strategy 1: Single image
         const singleImage = post.querySelector('img.feed-shared-image__image');
         if (singleImage && singleImage.src) {
-            console.log('[Echo Driver] Found single image');
             return await this.captureImageAsBase64(singleImage, 'single-image');
         }
 
         // Strategy 2: Carousel (first slide only - MVP)
         const carouselImage = post.querySelector('.feed-shared-carousel__content img');
         if (carouselImage && carouselImage.src) {
-            console.log('[Echo Driver] Found carousel image (first slide)');
             return await this.captureImageAsBase64(carouselImage, 'carousel');
         }
 
         // No supported media found
-        console.log('[Echo Driver] No supported media found');
         return { hasMedia: false, mediaData: null, mediaType: null };
     }
 
@@ -465,7 +435,6 @@ class AutoPilotDriver {
             // Convert to base64
             const base64Data = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-            console.log('[Echo Driver] Media captured successfully');
             return {
                 hasMedia: true,
                 mediaData: base64Data,
@@ -485,19 +454,15 @@ class AutoPilotDriver {
         this.processedPosts.add(postId);
         await this.saveCommentedPost(postId);
 
-        console.log('[Echo Driver] Step 1: Collected post data');
         const content = this.extractPostContent(post);
         if (!content || content.length < 20) {
-            console.log('[Echo Driver] Post content too short, skipping');
             return false;
         }
 
-        console.log(`[Echo Driver] Processing: "${authorName}" (${priority})`);
         this.addProcessingIndicator(post);
 
         try {
             // 1. Like the post first
-            console.log('[Echo Driver] ❤️ Liking post...');
             await this.likePost(post);
             await this.sleep(1000);
 
@@ -507,7 +472,6 @@ class AutoPilotDriver {
             }
 
             // 2. Wait before clicking comment button
-            console.log('[Echo Driver] Preparing to comment...');
             await this.humanWait('beforeCommentClick');
             if (this.checkShouldStop()) {
                 this.removeProcessingIndicator(post);
@@ -517,13 +481,11 @@ class AutoPilotDriver {
             // 3. Open comment box
             const boxOpened = await this.openCommentBox(post);
             if (!boxOpened) {
-                console.log('[Echo Driver] Failed to open comment box');
                 this.removeProcessingIndicator(post);
                 return false;
             }
 
             // 3. Wait before typing
-            console.log('[Echo Driver] Comment box opened, preparing to type...');
             await this.humanWait('beforeTyping');
             if (this.checkShouldStop()) {
                 this.removeProcessingIndicator(post);
@@ -531,12 +493,10 @@ class AutoPilotDriver {
             }
 
             // 4. Extract media (vision support)
-            console.log('[Echo Driver] 📸 Checking for media...');
             const mediaData = await this.extractMediaFromPost(post);
 
             // 5. Generate comment
             const { quickTone } = await chrome.storage.local.get('quickTone');
-            console.log('[Echo Driver] 🤖 Generating comment...');
 
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
@@ -550,7 +510,6 @@ class AutoPilotDriver {
             });
 
             if (!response?.comment) {
-                console.log('[Echo Driver] Failed to generate:', response?.error);
                 this.removeProcessingIndicator(post);
                 return false;
             }
@@ -561,7 +520,6 @@ class AutoPilotDriver {
             }
 
             // 5. Type comment SLOWLY (character by character)
-            console.log('[Echo Driver] ⌨️ Typing comment slowly...');
             await this.typeCommentSlowly(post, response.comment);
 
             if (this.checkShouldStop()) {
@@ -570,7 +528,6 @@ class AutoPilotDriver {
             }
 
             // 6. Wait before clicking Post (reviewing)
-            console.log('[Echo Driver] 👀 Reviewing comment before posting...');
             await this.humanWait('beforePostClick');
 
             if (this.checkShouldStop()) {
@@ -579,7 +536,6 @@ class AutoPilotDriver {
             }
 
             // 7. Click Post button with verification
-            console.log('[Echo Driver] 📤 Clicking Post...');
             const postResult = await this.clickPostButton(response.comment);
 
             // 8. Log locally with vision and verification metadata
@@ -648,20 +604,16 @@ class AutoPilotDriver {
             if (likeBtn) {
                 // Check if already liked
                 if (likeBtn.getAttribute('aria-pressed') === 'true') {
-                    console.log('[Echo Driver] Post already liked, skipping');
                     return true;
                 }
 
                 likeBtn.click();
-                console.log('[Echo Driver] ✅ Liked post');
                 await this.sleep(500);
                 return true;
             } else {
-                console.log('[Echo Driver] Like button not found, skipping like');
                 return false;
             }
         } catch (e) {
-            console.log('[Echo Driver] Could not like post:', e);
             return false;
         }
     }
@@ -696,7 +648,6 @@ class AutoPilotDriver {
             window.scrollBy(0, -100);
 
         } catch (e) {
-            console.log('[Echo Driver] Could not close comment box:', e);
         }
     }
 
@@ -721,7 +672,6 @@ class AutoPilotDriver {
         }
 
         if (!commentBtn) {
-            console.log('[Echo Driver] Comment button not found');
             return false;
         }
 
@@ -806,7 +756,6 @@ class AutoPilotDriver {
         }
 
         if (!editor) {
-            console.log('[Echo Driver] No editor found for typing');
             return;
         }
 
@@ -850,7 +799,6 @@ class AutoPilotDriver {
         editor.focus();
 
         // IMPORTANT: Wait for LinkedIn UI to enable the Post button
-        console.log('[Echo Driver] Waiting for UI to update...');
         await this.sleep(2000);
 
         // Visual feedback
@@ -864,7 +812,6 @@ class AutoPilotDriver {
 
     // ==================== VERIFICATION MODULE ====================
     async waitForVerification(commentText, timeout = 8000) {
-        console.log('[Echo Driver] 🔍 Starting verification...');
 
         // Wait for LinkedIn to process the post
         await this.sleep(3000);
@@ -872,7 +819,6 @@ class AutoPilotDriver {
         // Check 1: Is the comment box still full?
         const editor = document.querySelector('.ql-editor[contenteditable="true"]');
         if (!editor || editor.innerText.trim().length === 0 || editor.innerText.trim() === '') {
-            console.log('[Echo Driver] ✅ Comment box is empty - post likely succeeded');
             return { verified: true, method: 'editor-empty' };
         }
 
@@ -881,7 +827,6 @@ class AutoPilotDriver {
         for (const toast of toasts) {
             const text = toast.textContent?.toLowerCase() || '';
             if (text.includes('comment') || text.includes('posted') || text.includes('success')) {
-                console.log('[Echo Driver] ✅ Toast detected!');
                 return { verified: true, method: 'toast' };
             }
         }
@@ -890,7 +835,6 @@ class AutoPilotDriver {
         await this.sleep(2000);
         const editor2 = document.querySelector('.ql-editor[contenteditable="true"]');
         if (!editor2 || editor2.innerText.trim().length === 0) {
-            console.log('[Echo Driver] ✅ Comment box cleared after wait');
             return { verified: true, method: 'editor-cleared' };
         }
 
@@ -901,19 +845,16 @@ class AutoPilotDriver {
             for (const comment of comments) {
                 const commentBody = comment.textContent || '';
                 if (commentBody.includes(commentText.substring(0, 20))) {
-                    console.log('[Echo Driver] ✅ Comment found in DOM!');
                     return { verified: true, method: 'dom' };
                 }
             }
         }
 
-        console.log('[Echo Driver] ⚠️ Verification inconclusive');
         return { verified: false, method: 'none' };
     }
 
     // ==================== AUTO-POST ====================
     async clickPostButton(commentText) {
-        console.log('[Echo Driver] Looking for Post button...');
 
         // Keep current post in view
         if (this.currentPost) {
@@ -951,7 +892,6 @@ class AutoPilotDriver {
                     const btn = this.currentPost.querySelector(selector);
                     if (btn && btn.offsetParent !== null) {
                         postBtn = btn;
-                        console.log('[Echo Driver] Found Post button in current post');
                         break;
                     }
                 }
@@ -964,7 +904,6 @@ class AutoPilotDriver {
                     for (const btn of candidates) {
                         if (btn.offsetParent !== null) { // Just check visible, we'll check disabled separately
                             postBtn = btn;
-                            console.log('[Echo Driver] Found Post button globally');
                             break;
                         }
                     }
@@ -979,7 +918,6 @@ class AutoPilotDriver {
                     const text = btn.textContent?.toLowerCase().trim() || '';
                     if ((text === 'post' || text === 'comment') && btn.offsetParent !== null) {
                         postBtn = btn;
-                        console.log('[Echo Driver] Found Post button via text:', text);
                         break;
                     }
                 }
@@ -987,18 +925,15 @@ class AutoPilotDriver {
 
             // If button found but disabled, wait for it to become enabled
             if (postBtn && postBtn.disabled) {
-                console.log('[Echo Driver] Post button disabled, waiting...');
                 await this.sleep(1500);
                 // Re-check
                 if (postBtn.disabled) {
-                    console.log('[Echo Driver] Still disabled, continuing to next attempt');
                     await this.sleep(1000);
                     continue;
                 }
             }
 
             if (postBtn && !postBtn.disabled) {
-                console.log(`[Echo Driver] 📤 Clicking Post button (Attempt ${attempt})...`);
 
                 // Focus and click
                 postBtn.focus();
@@ -1009,20 +944,16 @@ class AutoPilotDriver {
                 const verificationResult = await this.waitForVerification(commentText);
 
                 if (verificationResult.verified) {
-                    console.log('[Echo Driver] ✅ Post verified via:', verificationResult.method);
                     return { posted: true, ...verificationResult };
                 } else {
-                    console.log('[Echo Driver] ⚠️ Verification failed, retrying...');
                 }
             } else {
-                console.log(`[Echo Driver] Post button not ready/found (Attempt ${attempt}/5)... waiting`);
             }
 
             // Wait before retry
             await this.sleep(1500);
         }
 
-        console.log('[Echo Driver] ❌ Failed to post after all attempts');
         return { posted: false, verified: false, method: 'none' };
     }
 
@@ -1154,7 +1085,6 @@ class AutoPilotDriver {
             // Keep only last 500 posts to prevent storage bloat
             const trimmedPosts = posts.slice(-500);
             await chrome.storage.local.set({ commentedPosts: trimmedPosts });
-            console.log('[Echo Driver] Saved commented post to storage:', postId);
         }
     }
 }
