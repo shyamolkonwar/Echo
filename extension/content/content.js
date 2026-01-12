@@ -70,6 +70,8 @@
     let commentBoxObserver = null;
 
     function setupManualButtonSystem() {
+        console.log('[Echo] Setting up manual button system. isActive:', isActive, 'isAutoPilot:', isAutoPilot);
+
         // Watch for comment boxes appearing
         commentBoxObserver = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
@@ -78,7 +80,9 @@
                         // Check if it's a comment box
                         const commentBoxes = node.matches?.(SELECTORS.commentForm) ? [node] : node.querySelectorAll?.(SELECTORS.commentForm) || [];
                         commentBoxes.forEach(box => {
+                            console.log('[Echo] Comment box detected. isAutoPilot:', isAutoPilot, 'isActive:', isActive);
                             if (!isAutoPilot && isActive) {
+                                console.log('[Echo] Injecting manual button');
                                 injectManualButton(box);
                             }
                         });
