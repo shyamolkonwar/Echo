@@ -80,8 +80,9 @@
                         // Check if it's a comment box
                         const commentBoxes = node.matches?.(SELECTORS.commentForm) ? [node] : node.querySelectorAll?.(SELECTORS.commentForm) || [];
                         commentBoxes.forEach(box => {
-                            console.log('[Echo] Comment box detected. isAutoPilot:', isAutoPilot, 'isActive:', isActive);
-                            if (!isAutoPilot && isActive) {
+                            console.log('[Echo] Comment box detected. isAutoPilot:', isAutoPilot);
+                            // Manual button only depends on autopilot state, not isActive
+                            if (!isAutoPilot) {
                                 console.log('[Echo] Injecting manual button');
                                 injectManualButton(box);
                             }
@@ -94,7 +95,7 @@
         commentBoxObserver.observe(document.body, { childList: true, subtree: true });
 
         // Also check existing comment boxes
-        if (!isAutoPilot && isActive) {
+        if (!isAutoPilot) {
             document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
         }
     }
@@ -178,12 +179,6 @@
                 isActive = message.isActive;
                 if (isActive) {
                     startObserver();
-
-                    // Inject manual buttons into existing comment boxes
-                    if (!isAutoPilot) {
-                        document.querySelectorAll(SELECTORS.commentForm).forEach(box => injectManualButton(box));
-                    }
-
                     showNotification('Echo is now active. Scroll your feed!');
                 } else {
                     stopObserver();
