@@ -5,7 +5,7 @@
 const API_CONFIG = {
     openai: {
         url: 'https://api.openai.com/v1/chat/completions',
-        model: 'gpt-4o-mini'
+        model: 'gpt-4o'
     },
     gemini: {
         url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
