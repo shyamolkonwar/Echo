@@ -10,6 +10,10 @@ const API_CONFIG = {
     gemini: {
         url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
         model: 'gemini-1.5-flash'
+    },
+    deepseek: {
+        url: 'https://api.deepseek.com/v1/chat/completions',
+        model: 'deepseek-chat'
     }
 };
 
@@ -74,7 +78,12 @@ async function handleGenerateComment(message, sendResponse) {
             } else {
                 comment = await callGeminiAPI(settings.apiKey, prompt);
             }
+        } else if (settings.apiProvider === 'deepseek') {
+            // DeepSeek uses OpenAI-compatible API (no vision support)
+            console.log('[Echo Background] Using DeepSeek API');
+            comment = await callDeepSeekAPI(settings.apiKey, prompt, settings.responseLength);
         } else {
+            // OpenAI (default)
             if (hasImage) {
                 console.log('[Echo Background] Using OpenAI Vision API');
                 comment = await callOpenAIVisionAPI(settings.apiKey, prompt, postData.imageData, settings.responseLength);
@@ -198,6 +207,36 @@ async function callOpenAIAPI(apiKey, prompt, responseLength = 2) {
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error?.message || `API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content?.trim() || '';
+}
+
+// Call DeepSeek API (OpenAI-compatible)
+async function callDeepSeekAPI(apiKey, prompt, responseLength = 2) {
+    const maxTokens = responseLength === 1 ? 60 : responseLength === 3 ? 200 : 100;
+
+    const response = await fetch(API_CONFIG.deepseek.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: API_CONFIG.deepseek.model,
+            messages: [
+                { role: 'system', content: prompt.systemPrompt },
+                { role: 'user', content: prompt.userPrompt }
+            ],
+            max_tokens: maxTokens,
+            temperature: 0.8
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || `DeepSeek API Error: ${response.status}`);
     }
 
     const data = await response.json();
