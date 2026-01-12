@@ -325,11 +325,12 @@
 
 .provider-select {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .provider-option {
-    flex: 1;
+    width: 100%;
     cursor: pointer;
 }
 
@@ -339,11 +340,12 @@
 
 .provider-card {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    padding: 16px 12px;
-    border: 2px solid #e5e7eb;
-    border-radius: 12px;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
     background: white;
     transition: all 0.2s;
 }
@@ -351,22 +353,28 @@
 .provider-option input:checked+.provider-card {
     border-color: #3b82f6;
     background: #eff6ff;
+    box-shadow: 0 0 0 1px #3b82f6;
 }
 
 .provider-option:hover .provider-card {
     border-color: #9ca3af;
+    background: #f9fafb;
 }
 
 .provider-name {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     color: #111827;
 }
 
 .provider-model {
-    font-size: 11px;
+    font-size: 12px;
     color: #6b7280;
-    margin-top: 2px;
+    margin-top: 0;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 8px;
+    border-radius: 12px;
 }
 
 /* ==================== MODERN SLIDER ==================== */
