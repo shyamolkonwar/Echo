@@ -31,7 +31,7 @@ class AutoPilotDriver {
         // Creator tracking
         this.watchedCreators = [];
         this.processedPosts = new Set();
-        this.randomCommentChance = 0.30; // 30% chance for non-watched posts
+        this.randomCommentChance = 0.90; // 90% chance - comment on most posts
 
         // Scroll tracking
         this.noNewPostsCount = 0;
