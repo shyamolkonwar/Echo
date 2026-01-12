@@ -1,0 +1,253 @@
+/* ==================== PLATFORM BAR STYLES ==================== */
+
+.platform-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.platform-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.platform-icon svg {
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.platform-icon.active {
+    border-color: #0066ff;
+    background: #eff6ff;
+}
+
+.platform-icon.active svg {
+    opacity: 1;
+}
+
+.platform-icon:hover {
+    background: #f3f4f6;
+    transform: translateY(-2px);
+}
+
+.platform-icon:hover svg {
+    opacity: 0.9;
+}
+
+/* ==================== CONTEXT CARDS ==================== */
+
+.context-card {
+    padding: 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.platform-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.platform-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Small toggle for autopilot in context cards */
+.toggle-switch-small {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch-small input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider-small {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e0;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider-small:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider-small {
+    background-color: #0066ff;
+}
+
+input:checked + .toggle-slider-small:before {
+    transform: translateX(20px);
+}
+
+/* ==================== CONTROL GROUPS ==================== */
+
+.control-group {
+    margin-bottom: 16px;
+}
+
+.control-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+.tone-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    color: #1f2937;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.tone-select:hover {
+    border-color: #9ca3af;
+}
+
+.tone-select:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+}
+
+.subreddit-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.subreddit-input:focus {
+    outline: none;
+    border-color: #0066ff;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+}
+
+.reddit-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: #856404;
+    line-height: 1.4;
+}
+
+/* ==================== SETTINGS SIDEBAR ==================== */
+
+.settings-container {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    min-height: 400px;
+    gap: 0;
+}
+
+.settings-sidebar {
+    border-right: 1px solid #e5e7eb;
+    padding: 16px 0;
+    background: #f9fafb;
+}
+
+.settings-nav-item {
+    width: 100%;
+    padding: 12px 20px;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-nav-item:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.settings-nav-item.active {
+    background: #eff6ff;
+    border-left-color: #0066ff;
+    color: #0066ff;
+    font-weight: 500;
+}
+
+.settings-content {
+    padding: 24px 32px;
+    overflow-y: auto;
+    max-height: 500px;
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+.settings-section h3 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Hide old platform selector styles */
+.platform-selector,
+.platform-options,
+#reddit-settings {
+    display: none !important;
+}

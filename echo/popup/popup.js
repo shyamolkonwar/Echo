@@ -8,11 +8,15 @@ class EchoPopup {
     }
 
     async init() {
+        // Migrate storage to v2 schema if needed
+        await this.migrateStorageToV2();
+
         this.cacheElements();
         this.bindEvents();
         await this.loadSettings();
         await this.checkOnboarding();
         this.updateActivityLog();
+        this.initPlatformBar();
     }
 
     cacheElements() {
@@ -445,6 +449,187 @@ class EchoPopup {
         setTimeout(() => {
             toast.remove();
         }, 3000);
+    }
+
+    // ==================== STORAGE MIGRATION ====================
+    async migrateStorageToV2() {
+        try {
+            // Check if already migrated
+            const { platforms } = await chrome.storage.local.get('platforms');
+            if (platforms) {
+                console.log('[Echo] Already using v2 schema');
+                return;
+            }
+
+            console.log('[Echo] Migrating to v2 storage schema...');
+
+            // Get old settings
+            const old = await chrome.storage.local.get([
+                'userTone',
+                'voiceDna',
+                'reddit_watched_subreddits',
+                'platform',
+                'quickTone',
+                'isAutoPilot',
+                'responseLength'
+            ]);
+
+            // Create new structure
+            const newSettings = {
+                platforms: {
+                    linkedin: {
+                        enabled: true,
+                        voice: old.userTone || old.voiceDna || '',
+                        autopilot: old.isAutoPilot || false,
+                        quickTone: old.quickTone || 'professional',
+                        responseLength: old.responseLength || 2
+                    },
+                    reddit: {
+                        enabled: true,
+                        voice: '',
+                        autopilot: false,
+                        quickTone: 'witty',
+                        subreddits: old.reddit_watched_subreddits || [],
+                        responseLength: 2
+                    }
+                },
+                currentPlatform: old.platform || 'linkedin'
+            };
+
+            // Save new structure
+            await chrome.storage.local.set(newSettings);
+
+            console.log('[Echo] Migration complete:', newSettings);
+        } catch (error) {
+            console.error('[Echo] Migration failed:', error);
+        }
+    }
+
+    // ==================== PLATFORM BAR ====================
+    async initPlatformBar() {
+        const platformIcons = document.querySelectorAll('.platform-icon');
+
+        if (platformIcons.length === 0) return; // UI not yet ready
+
+        platformIcons.forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                const platform = e.currentTarget.getAttribute('data-platform');
+                this.switchPlatform(platform);
+            });
+        });
+
+        // Auto-detect current platform from active tab
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.url) {
+                if (tab.url.includes('linkedin.com')) {
+                    this.switchPlatform('linkedin');
+                } else if (tab.url.includes('reddit.com')) {
+                    this.switchPlatform('reddit');
+                } else {
+                    // Default to stored preference
+                    const { currentPlatform } = await chrome.storage.local.get('currentPlatform');
+                    this.switchPlatform(currentPlatform || 'linkedin');
+                }
+            }
+        } catch (error) {
+            console.error('[Echo] Platform detection failed:', error);
+            // Default to LinkedIn
+            this.switchPlatform('linkedin');
+        }
+    }
+
+    async switchPlatform(platform) {
+        console.log('[Echo] Switching to platform:', platform);
+
+        // Update active icon
+        document.querySelectorAll('.platform-icon').forEach(icon => {
+            const iconPlatform = icon.getAttribute('data-platform');
+            if (iconPlatform === platform) {
+                icon.classList.add('active');
+            } else {
+                icon.classList.remove('active');
+            }
+        });
+
+        // Show corresponding context card
+        document.querySelectorAll('.context-card').forEach(card => {
+            const cardPlatform = card.getAttribute('data-platform');
+            if (cardPlatform === platform) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Save current platform
+        await chrome.storage.local.set({ currentPlatform: platform });
+
+        // Load platform-specific settings
+        await this.loadPlatformSettings(platform);
+    }
+
+    async loadPlatformSettings(platform) {
+        const { platforms } = await chrome.storage.local.get('platforms');
+        if (!platforms || !platforms[platform]) return;
+
+        const settings = platforms[platform];
+
+        // Update autopilot toggle
+        const autopilotToggle = document.querySelector(`.autopilot-toggle[data-platform="${platform}"]`);
+        if (autopilotToggle) {
+            autopilotToggle.checked = settings.autopilot || false;
+        }
+
+        // Update tone selector
+        const toneSelect = document.querySelector(`.tone-select[data-platform="${platform}"]`);
+        if (toneSelect) {
+            toneSelect.value = settings.quickTone || 'professional';
+        }
+
+        // Reddit-specific: load subreddits
+        if (platform === 'reddit') {
+            const subredditInput = document.querySelector('.subreddit-input');
+            if (subredditInput && settings.subreddits) {
+                subredditInput.value = settings.subreddits.join(', ');
+            }
+        }
+    }
+
+    // ==================== SETTINGS SIDEBAR NAVIGATION ====================
+    initSettingsNav() {
+        const navItems = document.querySelectorAll('.settings-nav-item');
+
+        if (navItems.length === 0) return; // Old UI still in use
+
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                const section = e.target.getAttribute('data-section');
+                this.showSettingsSection(section);
+            });
+        });
+    }
+
+    showSettingsSection(section) {
+        // Update active nav item
+        document.querySelectorAll('.settings-nav-item').forEach(item => {
+            const itemSection = item.getAttribute('data-section');
+            if (itemSection === section) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+
+        // Show corresponding settings section
+        document.querySelectorAll('.settings-section').forEach(sec => {
+            const secSection = sec.getAttribute('data-section');
+            if (secSection === section) {
+                sec.classList.add('active');
+            } else {
+                sec.classList.remove('active');
+            }
+        });
     }
 }
 
