@@ -50,15 +50,7 @@
     async function init() {
         console.log('[Echo Reddit Driver] Initializing...');
 
-        const settings = await chrome.storage.local.get([
-            'isActive', 'platforms', 'reddit_watched_subreddits'
-        ]);
-
-        isActive = settings.isActive || false;
-        const redditSettings = settings.platforms?.reddit || {};
-        isAutoPilot = redditSettings.autopilot || false;
-        isSemiAuto = redditSettings.enabled && !isAutoPilot;
-        targetSubreddits = settings.reddit_watched_subreddits || redditSettings.subreddits || [];
+        await refreshStateFromStorage();
 
         console.log('[Echo Reddit Driver] State:', { isActive, isAutoPilot, isSemiAuto, targetSubreddits });
 
@@ -71,27 +63,68 @@
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener(handleMessage);
 
-        // Listen for storage changes (for stop signal)
+        // Listen for storage changes (handles popup close scenarios)
         chrome.storage.onChanged.addListener((changes, namespace) => {
             if (namespace === 'local') {
-                if (changes.platforms?.newValue?.reddit?.autopilot === false) {
-                    shouldStop = true;
-                    isAutoPilot = false;
+                console.log('[Echo Reddit Driver] Storage changed:', changes);
+
+                // Handle isActive changes
+                if (changes.isActive !== undefined) {
+                    isActive = changes.isActive.newValue;
+                    if (!isActive) {
+                        shouldStop = true;
+                    } else if (isAutoPilot && !isProcessing) {
+                        shouldStop = false;
+                        startAutoPilotLoop();
+                    }
                 }
-                if (changes.isActive?.newValue === false) {
-                    shouldStop = true;
-                    isActive = false;
+
+                // Handle platforms.reddit changes
+                if (changes.platforms?.newValue?.reddit) {
+                    const redditSettings = changes.platforms.newValue.reddit;
+                    isAutoPilot = redditSettings.autopilot || false;
+                    isSemiAuto = redditSettings.enabled && !isAutoPilot;
+
+                    if (!isAutoPilot) {
+                        shouldStop = true;
+                    } else if (isActive && !isProcessing) {
+                        shouldStop = false;
+                        startAutoPilotLoop();
+                    }
                 }
             }
         });
     }
 
+    // Refresh state from storage (called periodically to ensure sync)
+    async function refreshStateFromStorage() {
+        try {
+            const settings = await chrome.storage.local.get([
+                'isActive', 'platforms', 'reddit_watched_subreddits'
+            ]);
+
+            isActive = settings.isActive || false;
+            const redditSettings = settings.platforms?.reddit || {};
+            isAutoPilot = redditSettings.autopilot || false;
+            isSemiAuto = redditSettings.enabled && !isAutoPilot;
+            targetSubreddits = settings.reddit_watched_subreddits || redditSettings.subreddits || [];
+
+            return { isActive, isAutoPilot, isSemiAuto };
+        } catch (error) {
+            console.error('[Echo Reddit Driver] Error reading storage:', error);
+            return { isActive: false, isAutoPilot: false, isSemiAuto: false };
+        }
+    }
+
     function handleMessage(message, sender, sendResponse) {
+        console.log('[Echo Reddit Driver] Received message:', message.type);
+
         if (message.type === 'TOGGLE_ACTIVE') {
             isActive = message.isActive;
             if (!isActive) {
                 shouldStop = true;
-            } else if (isAutoPilot) {
+            } else if (isAutoPilot && !isProcessing) {
+                shouldStop = false;
                 startAutoPilotLoop();
             }
         }
@@ -99,10 +132,10 @@
         if (message.type === 'TOGGLE_AUTOPILOT' && message.platform === 'reddit') {
             isAutoPilot = message.isAutoPilot;
             isSemiAuto = !isAutoPilot;
-            if (isAutoPilot && isActive) {
+            if (isAutoPilot && isActive && !isProcessing) {
                 shouldStop = false;
                 startAutoPilotLoop();
-            } else {
+            } else if (!isAutoPilot) {
                 shouldStop = true;
             }
         }
@@ -115,7 +148,10 @@
     // ==================== MAIN AUTO-PILOT LOOP ====================
 
     async function startAutoPilotLoop() {
-        if (isProcessing) return;
+        if (isProcessing) {
+            console.log('[Echo Reddit Driver] Already processing, skipping');
+            return;
+        }
 
         isProcessing = true;
         shouldStop = false;
@@ -126,7 +162,14 @@
         showNotification('🐢 Reddit Auto-Pilot engaged! Running slow & human-like...');
         console.log('[Echo Reddit Driver] Starting auto-pilot loop...');
 
-        while (isActive && isAutoPilot && !shouldStop) {
+        while (!shouldStop) {
+            // Re-verify state from storage every iteration (handles popup close)
+            const currentState = await refreshStateFromStorage();
+            if (!currentState.isActive || !currentState.isAutoPilot) {
+                console.log('[Echo Reddit Driver] State changed, stopping loop');
+                break;
+            }
+
             // Safety limits
             if (!checkSafetyLimits()) break;
 
