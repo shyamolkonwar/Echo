@@ -825,7 +825,7 @@
 
     // Log activity
     async function logActivity(post) {
-        const postData = extractPostData(post);
+        const postData = await extractPostData(post);
         const authorName = postData.authorName || 'Someone';
 
         // Get current activity log
