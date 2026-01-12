@@ -19,7 +19,7 @@
         authorName: '.update-components-actor__name span, .update-components-actor__title span[dir="ltr"], .feed-shared-actor__name',
         postBody: '.feed-shared-update-v2__description .break-words, .feed-shared-inline-show-more-text, .feed-shared-text-view span[dir="ltr"], .update-components-text',
         commentButton: 'button[aria-label*="omment"], button.comment-button, button[data-control-name="comment"]',
-        commentForm: '.comments-comment-box, .comments-comment-texteditor, [class*="comment-box"], .comments-comment-box-comment__text-editor, form.comments-comment-box__form',
+        commentForm: 'form.comments-comment-box__form',
         commentEditor: '.ql-editor, div[data-placeholder*="Add a comment"], div[contenteditable="true"][aria-label*="comment"], .editor-content[contenteditable="true"]',
         postButton: 'button.comments-comment-box__submit-button--cr, button[class*="comments-comment-box__submit-button"], button.comments-comment-box__submit-button, button[data-control-name="submit_comment"], button[type="submit"][class*="comment"]'
     };
