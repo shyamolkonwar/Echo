@@ -166,15 +166,15 @@
             </div>
         </main>
 
-        <!-- Settings View (Two-Column Layout) -->
-        <main id="settings-view" class="view">
+        <!-- Settings View (Identity Control Center) -->
+        <main id="settings-view" class="view settings-modal">
             <div class="settings-header">
                 <button id="back-btn" class="icon-btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M19 12H5M12 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <h2>Settings</h2>
+                <h2>Echo Settings</h2>
             </div>
 
             <div class="settings-container">
@@ -182,27 +182,46 @@
                 <nav class="settings-sidebar">
                     <div class="sidebar-section">
                         <span class="sidebar-category">GENERAL</span>
-                        <button class="settings-nav-item active" data-section="api">🔑 AI & Keys</button>
+                        <button class="nav-item active" data-section="api">
+                            <span class="nav-icon">🧠</span>
+                            <span>AI Brain</span>
+                        </button>
+                        <button class="nav-item" data-section="system">
+                            <span class="nav-icon">⚙️</span>
+                            <span>System</span>
+                        </button>
                     </div>
                     <div class="sidebar-section">
                         <span class="sidebar-category">PLATFORMS</span>
-                        <button class="settings-nav-item" data-section="linkedin">👔 LinkedIn</button>
-                        <button class="settings-nav-item" data-section="reddit">🤖 Reddit</button>
-                    </div>
-                    <div class="sidebar-section">
-                        <button class="settings-nav-item" data-section="system">⚙️ System</button>
+                        <button class="nav-item" data-section="linkedin">
+                            <span class="nav-icon">👔</span>
+                            <span>LinkedIn</span>
+                        </button>
+                        <button class="nav-item" data-section="reddit">
+                            <span class="nav-icon">🤖</span>
+                            <span>Reddit</span>
+                        </button>
+                        <button class="nav-item add-platform">
+                            <span class="nav-icon">+</span>
+                            <span>Add Platform</span>
+                        </button>
                     </div>
                 </nav>
 
-                <!-- Right Content Area -->
-                <div class="settings-content">
-                    <!-- API & Keys Section -->
+                <!-- Right Content Area (Canvas) -->
+                <div class="settings-canvas">
+                    <!-- API & Brain Section -->
                     <div class="settings-section active" data-section="api">
-                        <h3>AI Configuration</h3>
+                        <div class="section-header">
+                            <h3>AI Configuration</h3>
+                            <p class="section-desc">Manage your API keys and model preferences</p>
+                        </div>
                         <div class="form-group">
                             <label for="api-key">API Key</label>
-                            <div class="input-wrapper">
-                                <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+                            <div class="input-with-icon">
+                                <span class="input-icon">🔑</span>
+                                <input type="password" id="api-key" class="filled-input"
+                                    placeholder="Enter your API key..." autocomplete="off">
                                 <button id="toggle-key-visibility" class="icon-btn small" type="button">
                                     <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
@@ -213,19 +232,28 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>API Provider</label>
-                            <div class="radio-group">
-                                <label class="radio-option">
+                            <label>Provider</label>
+                            <div class="provider-select">
+                                <label class="provider-option">
                                     <input type="radio" name="api-provider" value="openai" checked>
-                                    <span>OpenAI</span>
+                                    <span class="provider-card">
+                                        <span class="provider-name">OpenAI</span>
+                                        <span class="provider-model">GPT-4o</span>
+                                    </span>
                                 </label>
-                                <label class="radio-option">
+                                <label class="provider-option">
                                     <input type="radio" name="api-provider" value="gemini">
-                                    <span>Gemini</span>
+                                    <span class="provider-card">
+                                        <span class="provider-name">Gemini</span>
+                                        <span class="provider-model">1.5 Flash</span>
+                                    </span>
                                 </label>
-                                <label class="radio-option">
+                                <label class="provider-option">
                                     <input type="radio" name="api-provider" value="deepseek">
-                                    <span>DeepSeek</span>
+                                    <span class="provider-card">
+                                        <span class="provider-name">DeepSeek</span>
+                                        <span class="provider-model">Chat</span>
+                                    </span>
                                 </label>
                             </div>
                         </div>
@@ -233,52 +261,85 @@
 
                     <!-- LinkedIn Section -->
                     <div class="settings-section" data-section="linkedin">
-                        <h3>LinkedIn Persona</h3>
+                        <div class="section-header">
+                            <h3>LinkedIn Persona</h3>
+                            <p class="section-desc">Define how you sound on LinkedIn</p>
+                        </div>
                         <div class="form-group">
                             <label for="linkedin-voice">My Voice</label>
-                            <p class="helper-text">Describe your LinkedIn commenting style.</p>
-                            <textarea id="linkedin-voice" rows="3"
-                                placeholder="I'm casual and witty. I use technical analogies but keep things accessible."></textarea>
+                            <div class="voice-editor-wrapper">
+                                <textarea id="linkedin-voice" class="voice-editor" rows="5"
+                                    placeholder="I'm casual and witty. I use technical analogies but keep things accessible. I always add value..."></textarea>
+                                <button class="optimize-btn" title="Optimize with AI">
+                                    <span>✨</span> Optimize
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Response Length</label>
-                            <div class="slider-wrapper">
+                            <div class="slider-wrapper modern">
                                 <span class="slider-label">Short</span>
-                                <input type="range" id="linkedin-length" min="1" max="3" value="2">
+                                <input type="range" id="linkedin-length" class="modern-slider" min="1" max="3"
+                                    value="2">
                                 <span class="slider-label">Long</span>
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="linkedin-creators-only">
+                                <span class="checkbox-custom"></span>
+                                <span>Reply to Creators only</span>
+                            </label>
                         </div>
                     </div>
 
                     <!-- Reddit Section -->
                     <div class="settings-section" data-section="reddit">
-                        <h3>Reddit Persona</h3>
+                        <div class="section-header">
+                            <h3>Reddit Persona</h3>
+                            <p class="section-desc">Define how you sound on Reddit</p>
+                        </div>
                         <div class="form-group">
                             <label for="reddit-voice">My Voice</label>
-                            <p class="helper-text">Describe your Reddit commenting style (e.g., "Don't use emojis, be
-                                shorter").</p>
-                            <textarea id="reddit-voice" rows="3"
-                                placeholder="I'm a cynical dev who hates startup buzzwords..."></textarea>
+                            <div class="voice-editor-wrapper">
+                                <textarea id="reddit-voice" class="voice-editor" rows="5"
+                                    placeholder="I'm a cynical dev who hates startup buzzwords. Keep it short and snarky..."></textarea>
+                                <button class="optimize-btn" title="Optimize with AI">
+                                    <span>✨</span> Optimize
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="subreddit-filter">Subreddit Filter</label>
-                            <p class="helper-text">Subreddits to comment on (comma-separated)</p>
-                            <input type="text" id="subreddit-filter" placeholder="SaaS, webdev, programming">
+                            <p class="helper-text">Only comment on these subreddits (comma-separated)</p>
+                            <input type="text" id="subreddit-filter" class="filled-input"
+                                placeholder="SaaS, webdev, programming">
                         </div>
                         <div class="form-group">
                             <label for="subreddit-blacklist">Blacklisted Subreddits</label>
-                            <input type="text" id="subreddit-blacklist" placeholder="politics, news">
+                            <input type="text" id="subreddit-blacklist" class="filled-input"
+                                placeholder="politics, news">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="reddit-ignore-hiring">
+                                <span class="checkbox-custom"></span>
+                                <span>Ignore 'Hiring' posts</span>
+                            </label>
                         </div>
                     </div>
 
                     <!-- System Section -->
                     <div class="settings-section" data-section="system">
-                        <h3>System Settings</h3>
+                        <div class="section-header">
+                            <h3>System Settings</h3>
+                            <p class="section-desc">Configure Echo's behavior</p>
+                        </div>
                         <div class="form-group">
                             <label>Typing Speed</label>
-                            <div class="slider-wrapper">
+                            <div class="slider-wrapper modern">
                                 <span class="slider-label">Fast</span>
-                                <input type="range" id="delay-timer" min="1" max="3" value="2">
+                                <input type="range" id="delay-timer" class="modern-slider" min="1" max="3" value="2">
                                 <span class="slider-label">Human</span>
                             </div>
                         </div>
@@ -286,7 +347,11 @@
                 </div>
             </div>
 
-            <button id="save-settings" class="btn-primary">Save All Settings</button>
+            <!-- Glassmorphism Action Bar -->
+            <div class="settings-action-bar">
+                <button id="cancel-settings" class="btn-secondary">Cancel</button>
+                <button id="save-settings" class="btn-primary">Save Changes</button>
+            </div>
         </main>
 
         <!-- Onboarding View -->
