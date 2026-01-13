@@ -894,36 +894,77 @@
                 await sleep(random(500, 1000));
             }
 
-            // Step 5: Scroll to comment box
-            const commentBox = await scrollToCommentBox();
-            if (!commentBox) {
-                console.error('[Echo Reddit Driver] Comment box not found');
-                return false;
+            // Step 5: Click the comment box to trigger button injection
+            console.log('[Echo Reddit Driver] Clicking comment box to trigger button...');
+            const triggers = ['div.text-area-wrapper', 'textarea#innerTextArea', 'shreddit-composer'];
+            for (const selector of triggers) {
+                const trigger = document.querySelector(selector);
+                if (trigger) {
+                    trigger.click();
+                    await sleep(1000);
+                    break;
+                }
             }
+            if (shouldStop) return false;
 
-            // Step 6: Thinking pause before typing
+            // Step 6: Thinking pause before generating
             await humanWait('beforeTyping');
             if (shouldStop) return false;
 
-            // Step 7: Generate comment
-            console.log('[Echo Reddit Driver] Requesting AI comment generation...');
-            const response = await chrome.runtime.sendMessage({
-                type: 'GENERATE_COMMENT',
-                postData: postData,
-                platform: 'reddit'
-            });
+            // Step 7: Wait for the Echo generate button to appear and click it
+            let generateBtn = null;
+            for (let i = 0; i < 30; i++) { // Wait up to 3 seconds
+                generateBtn = document.querySelector('.echo-reddit-generate-btn');
+                if (generateBtn) break;
+                await sleep(100);
+            }
 
-            if (response.error || !response.comment) {
-                console.error('[Echo Reddit Driver] AI generation failed:', response.error);
+            if (!generateBtn) {
+                // Button didn't appear, inject it manually
+                const composer = document.querySelector('shreddit-composer, [data-testid="comment-composer"]');
+                if (composer) {
+                    injectManualGenerateButton(composer);
+                    await sleep(500);
+                    generateBtn = document.querySelector('.echo-reddit-generate-btn');
+                }
+            }
+
+            if (!generateBtn) {
+                console.error('[Echo Reddit Driver] Generate button not found');
                 return false;
             }
 
-            console.log('[Echo Reddit Driver] AI generated comment:', response.comment.substring(0, 100) + '...');
+            console.log('[Echo Reddit Driver] Clicking Echo generate button...');
+            generateBtn.click();
 
-            // Step 8: Type comment SLOWLY (character by character)
-            console.log('[Echo Reddit Driver] Starting to type comment...');
-            await typeSlowly(response.comment, commentBox);
-            console.log('[Echo Reddit Driver] Finished typing comment');
+            // Step 8: Wait for comment to be generated and inserted
+            // The handleManualGenerate function will handle this, we just need to wait
+            let commentInserted = false;
+            for (let i = 0; i < 60; i++) { // Wait up to 30 seconds for AI generation
+                await sleep(500);
+
+                // Check if button is no longer loading (means generation complete)
+                if (!generateBtn.disabled) {
+                    // Check if text was inserted
+                    const lexicalDiv = document.querySelector('div[data-lexical-editor="true"]');
+                    const textarea = document.querySelector('textarea#innerTextArea');
+                    const hasContent = (lexicalDiv && lexicalDiv.textContent.trim().length > 10) ||
+                        (textarea && textarea.value.trim().length > 10);
+                    if (hasContent) {
+                        commentInserted = true;
+                        break;
+                    }
+                }
+
+                if (shouldStop) return false;
+            }
+
+            if (!commentInserted) {
+                console.error('[Echo Reddit Driver] Comment generation/insertion timed out');
+                return false;
+            }
+
+            console.log('[Echo Reddit Driver] Comment inserted successfully!');
             if (shouldStop) return false;
 
             // Step 9: Review pause before submitting
