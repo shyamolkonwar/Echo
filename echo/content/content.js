@@ -145,9 +145,11 @@
         `;
         toneSelect.innerHTML = `
             <option value="professional">💼 Professional</option>
-            <option value="casual">😊 Casual</option>
+            <option value="supportive">🤝 Supportive</option>
             <option value="insightful">💡 Insightful</option>
-            <option value="witty">😏 Witty</option>
+            <option value="enthusiastic">🎉 Enthusiastic</option>
+            <option value="appreciative">� Appreciative</option>
+            <option value="casual">😊 Casual</option>
         `;
 
         // Load saved tone

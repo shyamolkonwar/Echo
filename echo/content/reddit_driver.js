@@ -153,15 +153,16 @@
             padding-right: 30px;
         `;
         toneSelect.innerHTML = `
-            <option value="witty">😏 Witty</option>
-            <option value="helpful">🤝 Helpful</option>
-            <option value="snarky">😈 Snarky</option>
-            <option value="professional">💼 Professional</option>
+            <option value="sarcastic">😏 Sarcastic</option>
+            <option value="witty">🎭 Witty</option>
+            <option value="cynical">🙄 Cynical</option>
+            <option value="informative">📚 Informative</option>
+            <option value="supportive">🤝 Supportive</option>
         `;
 
         // Load saved tone
         chrome.storage.local.get('redditQuickTone').then(data => {
-            toneSelect.value = data.redditQuickTone || 'witty';
+            toneSelect.value = data.redditQuickTone || 'sarcastic';
         });
 
         // Save tone on change
