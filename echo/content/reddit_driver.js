@@ -679,14 +679,16 @@
     async function scrollToCommentBox() {
         let commentBox = null;
 
-        // Step 1: Try clicking the comment composer area to trigger lazy-load
+        // Step 1: Try clicking the comment composer area to trigger lazy-load / expansion
+        // The textarea-wrapper or trigger-button click will expand the collapsed textarea
+        // into the full Lexical RTE
         const composerTriggers = [
+            'div.text-area-wrapper',  // The wrapper around the collapsed textarea
+            'textarea#innerTextArea', // The collapsed textarea itself
             '[data-testid="trigger-button"]',
             'faceplate-textarea-input',
             'shreddit-composer',
             '[data-testid="comment-composer"]',
-            '.comment-composer',
-            'div[placeholder*="conversation"]'
         ];
 
         for (const selector of composerTriggers) {
@@ -694,44 +696,48 @@
             if (trigger) {
                 console.log('[Echo Reddit Driver] Clicking composer trigger:', selector);
                 trigger.click();
-                await sleep(1000);
+                await sleep(1500); // Give time for the RTE to fully load
                 break;
             }
         }
 
-        // Step 2: Wait with longer timeout (20 seconds) - Scan Deep including Shadow DOM
+        // Step 2: Wait for the Lexical editor div to appear (this is the real target)
+        // The Lexical editor has data-lexical-editor="true" attribute
         for (let i = 0; i < 100; i++) { // 100 * 200ms = 20 seconds
-            // Try standard DOM first - PRIORITIZE RTE DIV
-            commentBox = document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-                document.querySelector('textarea#innerTextArea') ||
-                document.querySelector('textarea[name="text"]') ||
-                document.querySelector('textarea[placeholder*="conversation"]');
+            // Look specifically for the Lexical editor div
+            commentBox = document.querySelector('div[data-lexical-editor="true"][contenteditable="true"]') ||
+                document.querySelector('div[slot="rte"][contenteditable="true"]') ||
+                document.querySelector('div[contenteditable="true"][role="textbox"]');
 
-            // If not found, try Shadow DOM traversal
+            // Fallback to textarea if RTE doesn't load
             if (!commentBox) {
-                commentBox = findCommentBoxInShadowRoots();
+                const textarea = document.querySelector('textarea#innerTextArea');
+                if (textarea && textarea.offsetHeight > 0) {
+                    commentBox = textarea;
+                }
             }
 
             if (commentBox) {
-                // Ignore hidden/collapsed textareas
-                if (commentBox.tagName === 'TEXTAREA' && commentBox.offsetHeight === 0) {
-                    // Try to find a sibling or parent that might be the real deal, or wait
-                    console.log('[Echo Reddit Driver] Found textarea but height is 0 (collapsed/hidden). Continuing scan...');
-                    commentBox = null; // force continue
-                } else {
+                // Verify it's actually visible/usable
+                const rect = commentBox.getBoundingClientRect();
+                if (rect.height > 0) {
                     console.log('[Echo Reddit Driver] Found comment box:', {
                         id: commentBox.id || 'no-id',
                         tagName: commentBox.tagName,
                         contentEditable: commentBox.getAttribute('contenteditable'),
-                        shadow: !!commentBox.getRootNode()?.host
+                        lexicalEditor: commentBox.getAttribute('data-lexical-editor'),
+                        height: rect.height
                     });
                     break;
+                } else {
+                    console.log('[Echo Reddit Driver] Found element but height is 0, continuing...');
+                    commentBox = null;
                 }
             }
 
             // Log progress every 2 seconds
             if (i % 10 === 0 && i > 0) {
-                console.log(`[Echo Reddit Driver] Still waiting for comment box... ${i * 0.2}s elapsed`);
+                console.log(`[Echo Reddit Driver] Still waiting for Lexical editor... ${i * 0.2}s elapsed`);
             }
 
             await sleep(200);
@@ -742,18 +748,29 @@
             await sleep(random(500, 1000));
 
             // CRITICAL: Click the comment box to activate it before typing
-            console.log('[Echo Reddit Driver] Clicking comment box to activate...');
+            // This puts the cursor inside and activates the Lexical editor
+            console.log('[Echo Reddit Driver] Clicking comment box to place cursor...');
             commentBox.click();
             await sleep(500);
 
+            // Focus to ensure keyboard events are captured
             commentBox.focus();
-            await sleep(300); // Give time for focus event to trigger UI updates
+            await sleep(300);
+
+            // Double-check we have focus
+            if (document.activeElement !== commentBox) {
+                console.log('[Echo Reddit Driver] Focus not on comment box, retrying...');
+                commentBox.click();
+                await sleep(200);
+                commentBox.focus();
+            }
         } else {
             console.error('[Echo Reddit Driver] Comment box not found after 20 seconds');
             // Debug info
             const composers = document.querySelectorAll('shreddit-composer');
             console.log(`[Echo Reddit Driver] Found ${composers.length} shreddit-composer elements`);
-            composers.forEach((c, i) => console.log(`Composer ${i} shadowRoot:`, !!c.shadowRoot));
+            const lexicalDivs = document.querySelectorAll('div[data-lexical-editor]');
+            console.log(`[Echo Reddit Driver] Found ${lexicalDivs.length} lexical editor divs`);
         }
 
         return commentBox;
