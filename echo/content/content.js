@@ -171,12 +171,37 @@
             }
         });
 
-        // Create generate button
+        // Create generate button with inline styles for reliability
         const button = document.createElement('button');
         button.className = 'echo-manual-btn';
-        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>Generate Comment</span>`;
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>Generate Comment</span>`;
         button.title = 'Generate AI comment';
         button.type = 'button';
+        button.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #0a66c2 0%, #004182 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(10, 102, 194, 0.3);
+            transition: all 0.2s ease;
+        `;
+        button.addEventListener('mouseenter', () => {
+            button.style.transform = 'translateY(-1px)';
+            button.style.boxShadow = '0 4px 12px rgba(10, 102, 194, 0.4)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 2px 6px rgba(10, 102, 194, 0.3)';
+        });
         button.addEventListener('click', async () => {
             quickTone = toneSelect.value; // Use current selection
             await handleManualGenerate(commentBox);
