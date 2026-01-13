@@ -295,11 +295,14 @@
 
     async function typeSlowly(text, element) {
         console.log(`[Echo Reddit Driver] typeSlowly called with ${text.length} characters`);
-        console.log(`[Echo Reddit Driver] Element type: ${element.tagName}, ID: ${element.id}`);
+        console.log(`[Echo Reddit Driver] Element type: ${element.tagName}, ID: ${element.id}, ContentEditable: ${element.isContentEditable}`);
 
-        // Verify it's a textarea
-        if (element.tagName.toLowerCase() !== 'textarea') {
-            console.error('[Echo Reddit Driver] typeSlowly requires a TEXTAREA element, got:', element.tagName);
+        // Verify it's a textarea or contenteditable div
+        const isTextarea = element.tagName.toLowerCase() === 'textarea';
+        const isContentEditable = element.isContentEditable || element.getAttribute('contenteditable') === 'true';
+
+        if (!isTextarea && !isContentEditable) {
+            console.error('[Echo Reddit Driver] typeSlowly requires TEXTAREA or ContentEditable, got:', element.tagName);
             return;
         }
 
@@ -307,7 +310,11 @@
         await sleep(random(300, 600));
 
         // Clear existing content
-        element.value = '';
+        if (isTextarea) {
+            element.value = '';
+        } else {
+            element.innerHTML = ''; // Safer for RTE to clear everything
+        }
 
         // Type character by character
         let typedChars = 0;
@@ -315,7 +322,15 @@
             if (shouldStop) break;
 
             const char = text[i];
-            element.value += char;
+
+            if (isTextarea) {
+                element.value += char;
+            } else {
+                // For contenteditable, we can simply append text
+                // But better to simulate input event if possible
+                element.textContent += char;
+            }
+
             element.dispatchEvent(new Event('input', { bubbles: true }));
 
             typedChars++;
@@ -333,7 +348,12 @@
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
 
-        console.log(`[Echo Reddit Driver] Typed ${typedChars} characters into textarea`);
+        // For RTE, sometimes we need to trigger a specific React/Lexical event, but input usually works for basic text
+        if (isContentEditable) {
+            element.dispatchEvent(new Event('compositionend', { bubbles: true }));
+        }
+
+        console.log(`[Echo Reddit Driver] Typed ${typedChars} characters into ${isTextarea ? 'textarea' : 'RTE'}`);
     }
 
     // ==================== TARGET SCANNING ====================
@@ -641,6 +661,8 @@
 
         // Step 1: Try clicking the comment composer area to trigger lazy-load
         const composerTriggers = [
+            '[data-testid="trigger-button"]',
+            'faceplate-textarea-input',
             'shreddit-composer',
             '[data-testid="comment-composer"]',
             '.comment-composer',
@@ -659,8 +681,9 @@
 
         // Step 2: Wait with longer timeout (20 seconds) - Scan Deep including Shadow DOM
         for (let i = 0; i < 100; i++) { // 100 * 200ms = 20 seconds
-            // Try standard DOM first
-            commentBox = document.querySelector('textarea#innerTextArea') ||
+            // Try standard DOM first - PRIORITIZE RTE DIV
+            commentBox = document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+                document.querySelector('textarea#innerTextArea') ||
                 document.querySelector('textarea[name="text"]') ||
                 document.querySelector('textarea[placeholder*="conversation"]');
 
@@ -670,12 +693,20 @@
             }
 
             if (commentBox) {
-                console.log('[Echo Reddit Driver] Found comment box:', {
-                    id: commentBox.id || 'no-id',
-                    tagName: commentBox.tagName,
-                    shadow: !!commentBox.getRootNode()?.host
-                });
-                break;
+                // Ignore hidden/collapsed textareas
+                if (commentBox.tagName === 'TEXTAREA' && commentBox.offsetHeight === 0) {
+                    // Try to find a sibling or parent that might be the real deal, or wait
+                    console.log('[Echo Reddit Driver] Found textarea but height is 0 (collapsed/hidden). Continuing scan...');
+                    commentBox = null; // force continue
+                } else {
+                    console.log('[Echo Reddit Driver] Found comment box:', {
+                        id: commentBox.id || 'no-id',
+                        tagName: commentBox.tagName,
+                        contentEditable: commentBox.getAttribute('contenteditable'),
+                        shadow: !!commentBox.getRootNode()?.host
+                    });
+                    break;
+                }
             }
 
             // Log progress every 2 seconds
@@ -692,7 +723,7 @@
             commentBox.focus();
             await sleep(300); // Give time for focus event to trigger UI updates
         } else {
-            console.error('[Echo Reddit Driver] Comment box (textarea) not found after 20 seconds');
+            console.error('[Echo Reddit Driver] Comment box not found after 20 seconds');
             // Debug info
             const composers = document.querySelectorAll('shreddit-composer');
             console.log(`[Echo Reddit Driver] Found ${composers.length} shreddit-composer elements`);
@@ -707,26 +738,39 @@
      */
     function findCommentBoxInShadowRoots() {
         // Roots to check
-        const hosts = document.querySelectorAll('shreddit-composer, shreddit-app, faceplate-form, div[id^="comment-composer"]');
+        const hosts = document.querySelectorAll('shreddit-composer, shreddit-app, faceplate-form, div[id^="comment-composer"], comment-body-header');
 
         for (const host of hosts) {
             if (host.shadowRoot) {
+                // Check for RTE DIV first
+                const rte = host.shadowRoot.querySelector('div[contenteditable="true"][role="textbox"], div[contenteditable="true"]');
+                if (rte) return rte;
+
                 const textarea = host.shadowRoot.querySelector('textarea#innerTextArea, textarea[name="text"], textarea');
                 if (textarea) return textarea;
 
                 // Nested shadow roots? (Reddit usually shallow, but good to check children)
-                const nestedHosts = host.shadowRoot.querySelectorAll('faceplate-form, div');
+                const nestedHosts = host.shadowRoot.querySelectorAll('faceplate-form, div, shreddit-composer, reddit-rte');
                 for (const nested of nestedHosts) {
                     if (nested.shadowRoot) {
+                        const nestedRte = nested.shadowRoot.querySelector('div[contenteditable="true"]');
+                        if (nestedRte) return nestedRte;
+
                         const nestedTextarea = nested.shadowRoot.querySelector('textarea');
                         if (nestedTextarea) return nestedTextarea;
                     }
                     // Sometimes it's just in a slot/light DOM but hidden
+                    const slotRte = nested.querySelector && nested.querySelector('div[contenteditable="true"]');
+                    if (slotRte) return slotRte;
+
                     const slotTextarea = nested.querySelector && nested.querySelector('textarea');
                     if (slotTextarea) return slotTextarea;
                 }
             } else {
                 // Check if it's a light DOM child we missed
+                const lightRte = host.querySelector('div[contenteditable="true"]');
+                if (lightRte) return lightRte;
+
                 const lightTextarea = host.querySelector('textarea');
                 if (lightTextarea) return lightTextarea;
             }
