@@ -295,17 +295,19 @@
 
     async function typeSlowly(text, element) {
         console.log(`[Echo Reddit Driver] typeSlowly called with ${text.length} characters`);
-        console.log(`[Echo Reddit Driver] Element type: ${element.tagName}`);
+        console.log(`[Echo Reddit Driver] Element type: ${element.tagName}, ID: ${element.id}`);
+
+        // Verify it's a textarea
+        if (element.tagName.toLowerCase() !== 'textarea') {
+            console.error('[Echo Reddit Driver] typeSlowly requires a TEXTAREA element, got:', element.tagName);
+            return;
+        }
 
         element.focus();
         await sleep(random(300, 600));
 
         // Clear existing content
-        if (element.tagName.toLowerCase() === 'textarea') {
-            element.value = '';
-        } else {
-            element.textContent = '';
-        }
+        element.value = '';
 
         // Type character by character
         let typedChars = 0;
@@ -313,13 +315,8 @@
             if (shouldStop) break;
 
             const char = text[i];
-
-            if (element.tagName.toLowerCase() === 'textarea') {
-                element.value += char;
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-            } else {
-                document.execCommand('insertText', false, char);
-            }
+            element.value += char;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
 
             typedChars++;
 
@@ -336,7 +333,7 @@
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
 
-        console.log(`[Echo Reddit Driver] Typed ${typedChars} characters`);
+        console.log(`[Echo Reddit Driver] Typed ${typedChars} characters into textarea`);
     }
 
     // ==================== TARGET SCANNING ====================
@@ -642,10 +639,18 @@
     async function scrollToCommentBox() {
         let commentBox = null;
 
-        // Wait with timeout
+        // Wait with timeout - ONLY target TEXTAREA, not contenteditable DIVs
         for (let i = 0; i < 30; i++) {
-            commentBox = document.querySelector('textarea#innerTextArea, textarea[placeholder*="conversation"], div[contenteditable="true"][role="textbox"]');
-            if (commentBox) break;
+            // Priority order: specific ID first, then by placeholder
+            commentBox = document.querySelector('textarea#innerTextArea') ||
+                document.querySelector('textarea[name="text"]') ||
+                document.querySelector('textarea[placeholder*="conversation"]') ||
+                document.querySelector('shreddit-composer textarea');
+
+            if (commentBox) {
+                console.log('[Echo Reddit Driver] Found comment box:', commentBox.id || commentBox.name || commentBox.tagName);
+                break;
+            }
             await sleep(200);
         }
 
@@ -653,6 +658,8 @@
             commentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
             await sleep(random(500, 1000));
             commentBox.focus();
+        } else {
+            console.error('[Echo Reddit Driver] Comment box (textarea) not found after 6 seconds');
         }
 
         return commentBox;
