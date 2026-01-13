@@ -334,34 +334,52 @@
     // ==================== TARGET SCANNING ====================
 
     async function scanForTargetPost() {
-        const posts = document.querySelectorAll('shreddit-post, article.w-full shreddit-post');
+        // Use the updated selectors from reddit_logic.js directly if needed, or rely on window.extractRedditPostData
+        // Selector needs to match the new DOM structure: article containing shreddit-post
+        const posts = document.querySelectorAll('article shreddit-post, shreddit-post');
+
+        console.log(`[Echo Reddit Driver] Scanning ${posts.length} visible posts...`);
 
         for (const post of posts) {
             if (shouldStop) return null;
 
             const postData = window.extractRedditPostData?.(post);
-            if (!postData) continue;
+            if (!postData) {
+                // console.log('[Echo Reddit Driver] Failed to extract data from post');
+                continue;
+            }
 
             // Check if already commented
-            if (await hasAlreadyCommented(postData.postId)) continue;
-
-            // Check visibility (only process visible posts)
-            const rect = post.getBoundingClientRect();
-            const isVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.7;
-            if (!isVisible) continue;
+            if (await hasAlreadyCommented(postData.postId)) {
+                // console.log(`[Echo Reddit Driver] Already commented: ${postData.postId}`);
+                continue;
+            }
 
             // Check if subreddit matches target list
             if (targetSubreddits.length > 0) {
-                const subredditLower = postData.subreddit.toLowerCase();
+                const subredditLower = postData.subreddit.toLowerCase().replace(/^r\//, '').trim();
                 const matchesTarget = targetSubreddits.some(
-                    target => target.toLowerCase().replace(/^r\//, '') === subredditLower
+                    target => target.toLowerCase().replace(/^r\//, '').trim() === subredditLower
                 );
-                if (!matchesTarget) continue;
+
+                if (!matchesTarget) {
+                    console.log(`[Echo Reddit Driver] Skipping r/${postData.subreddit} (Not in targets: ${targetSubreddits.join(', ')})`);
+                    continue;
+                }
             }
+
+            // Check visibility (only process visible posts)
+            // const rect = post.getBoundingClientRect();
+            // const isVisible = rect.top >= 0 && rect.top <= window.innerHeight * 0.7;
+            // if (!isVisible) {
+            //     console.log(`[Echo Reddit Driver] Skipping ${postData.postId} (Not visible enough)`);
+            //     continue;
+            // }
 
             return { element: post, postData };
         }
 
+        console.log('[Echo Reddit Driver] No matching target found in this scan');
         return null;
     }
 
