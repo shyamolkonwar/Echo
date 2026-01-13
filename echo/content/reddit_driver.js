@@ -705,9 +705,11 @@
         // The Lexical editor has data-lexical-editor="true" attribute
         for (let i = 0; i < 100; i++) { // 100 * 200ms = 20 seconds
             // Look specifically for the Lexical editor div
-            commentBox = document.querySelector('div[data-lexical-editor="true"][contenteditable="true"]') ||
-                document.querySelector('div[slot="rte"][contenteditable="true"]') ||
-                document.querySelector('div[contenteditable="true"][role="textbox"]');
+            const lexicalDiv = document.querySelector('div[data-lexical-editor="true"][contenteditable="true"]');
+            const slotDiv = document.querySelector('div[slot="rte"][contenteditable="true"]');
+            const roleDiv = document.querySelector('div[contenteditable="true"][role="textbox"]');
+
+            commentBox = lexicalDiv || slotDiv || roleDiv;
 
             // Fallback to textarea if RTE doesn't load
             if (!commentBox) {
@@ -718,16 +720,23 @@
             }
 
             if (commentBox) {
-                // Verify it's actually visible/usable
                 const rect = commentBox.getBoundingClientRect();
-                if (rect.height > 0) {
+                const isLexical = commentBox.getAttribute('data-lexical-editor') === 'true';
+
+                // TRUST the Lexical div even if height is 0 - clicking it will activate it
+                // Only reject if it's a non-Lexical element with 0 height
+                if (isLexical || rect.height > 0) {
                     console.log('[Echo Reddit Driver] Found comment box:', {
                         id: commentBox.id || 'no-id',
                         tagName: commentBox.tagName,
                         contentEditable: commentBox.getAttribute('contenteditable'),
-                        lexicalEditor: commentBox.getAttribute('data-lexical-editor'),
+                        lexicalEditor: isLexical,
                         height: rect.height
                     });
+                    break;
+                } else if (i > 25) {
+                    // After 5 seconds, just use whatever we found
+                    console.log('[Echo Reddit Driver] Using element despite height 0 (timeout fallback)');
                     break;
                 } else {
                     console.log('[Echo Reddit Driver] Found element but height is 0, continuing...');
