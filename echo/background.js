@@ -97,8 +97,19 @@ async function handleGenerateComment(message, sendResponse) {
 
 // ==================== MASTER SYSTEM PROMPT ====================
 function buildPrompt(postData, quickTone, settings) {
-    const userTone = settings.userTone || settings.voiceDna || 'professional and thoughtful';
     const hasImage = postData.hasImage === true;
+
+    // Map quickTone to detailed tone descriptions
+    const toneDescriptions = {
+        'professional': 'Professional and thoughtful. Use formal but conversational language. Show expertise while being approachable.',
+        'supportive': 'Warm and encouraging. Validate the author\'s perspective and add value with genuine empathy.',
+        'insightful': 'Analytical and thought-provoking. Offer a fresh perspective or connect dots others missed.',
+        'enthusiastic': 'High-energy and positive. Show genuine excitement about the topic while adding substance.',
+        'appreciative': 'Grateful and acknowledging. Highlight specific aspects that resonated with you personally.',
+        'casual': 'Laid-back and friendly. Write like you\'re chatting with a colleague over coffee.'
+    };
+
+    const activeTone = toneDescriptions[quickTone] || toneDescriptions['professional'];
 
     // Build comprehensive system prompt
     const systemPrompt = `# SYSTEM IDENTITY & CORE DIRECTIVE
@@ -148,7 +159,7 @@ The image is PRIMARY. Your comment MUST prove you looked at it.
 - Generic comments on image posts = #1 bot indicator` : ''}
 
 # SECTION 3: THE CHAMELEON ENGINE (USER PERSONA)
-**CURRENT USER PERSONA:** "${userTone}"
+**CURRENT TONE:** ${activeTone}
 
 **ADAPTATION RULES:**
 - Match their vocabulary, sentence structure, and rhythm
@@ -181,10 +192,20 @@ Generate ONLY the final comment. No explanations. No quotes. NO EM DASHES.`;
 
 // ==================== REDDIT-SPECIFIC PROMPT ====================
 function buildRedditPrompt(postData, quickTone, settings) {
-    const userTone = settings.userTone || settings.voiceDna || 'professional and thoughtful';
     const subreddit = postData.subreddit || 'unknown';
     const flair = postData.flair || '';
     const hasImage = postData.hasImage === true;
+
+    // Map quickTone to detailed tone descriptions for Reddit
+    const toneDescriptions = {
+        'sarcastic': 'Sarcastic and dry. Use deadpan humor and irony. Point out absurdities with a straight face.',
+        'witty': 'Clever and quick-witted. Make smart observations wrapped in humor. Land unexpected punchlines.',
+        'cynical': 'Skeptical and sardonic. Question the mainstream narrative. Play devil\'s advocate.',
+        'informative': 'Factual and helpful. Provide useful information or explain concepts clearly. Be a good resource.',
+        'supportive': 'Encouraging and empathetic. Validate feelings and offer genuine support without being preachy.'
+    };
+
+    const activeTone = toneDescriptions[quickTone] || toneDescriptions['sarcastic'];
 
     // Subreddit-specific cultural rules
     const subredditRules = getSubredditRules(subreddit, flair);
@@ -215,7 +236,7 @@ NEVER start with: "Great post", "Thanks for sharing", "This!", "Came here to say
 ### 1.4 No Signature
 NEVER sign your name or add a signature at the end
 
-### 1.5 Tone Matching
+### 1.5 Subreddit Culture Matching
 ${subredditRules}
 
 ${flair.toLowerCase().includes('serious') ? `
@@ -235,9 +256,10 @@ ${hasImage ? `
 # SECTION 3: IMAGE PRESENT
 The post contains an image. Reference specific visual details if relevant to your comment.` : ''}
 
-# SECTION 3: USER PERSONA
-**YOUR VOICE:** "${userTone}"
-Adapt this voice to fit r/${subreddit}'s culture while maintaining your core personality.
+# SECTION 4: YOUR WRITING TONE (CRITICAL - FOLLOW THIS)
+**TONE:** ${activeTone}
+
+Write your comment in this exact tone. This is the most important instruction.
 
 # SECTION 4: VALUE-ADD REQUIREMENT
 Your comment must:
