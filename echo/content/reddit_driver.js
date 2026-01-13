@@ -309,12 +309,20 @@
         element.focus();
         await sleep(random(300, 600));
 
-        // Clear existing content
+        // Clear existing content safely
         if (isTextarea) {
             element.value = '';
         } else {
-            element.innerHTML = ''; // Safer for RTE to clear everything
+            // Try execCommand for clearing if possible, or fallback to textContent
+            // For Reddit's editor, better to NOT clear manually if we can avoid it, or use select all + delete
+            // But for now, let's try setting textContent to empty string, it usually resets visible state
+            if (element.textContent.trim().length > 0) {
+                element.textContent = '';
+            }
         }
+
+        // Ensure focus again
+        element.focus();
 
         // Type character by character
         let typedChars = 0;
@@ -325,13 +333,24 @@
 
             if (isTextarea) {
                 element.value += char;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
             } else {
-                // For contenteditable, we can simply append text
-                // But better to simulate input event if possible
-                element.textContent += char;
-            }
+                // For ContentEditable / Lexical / Rich Text Editors:
+                // Best method: execCommand 'insertText' (deprecated but reliable for simulating user input)
+                const success = document.execCommand('insertText', false, char);
 
-            element.dispatchEvent(new Event('input', { bubbles: true }));
+                // Fallback if execCommand fails (though it shouldn't on Chrome)
+                if (!success) {
+                    element.textContent += char;
+                    // Dispatch legacy textInput event which some frameworks listen to
+                    const evt = document.createEvent('TextEvent');
+                    evt.initTextEvent('textInput', true, true, window, char, 0, "en-US");
+                    element.dispatchEvent(evt);
+
+                    // Also dispatch generic input
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
 
             typedChars++;
 
@@ -348,9 +367,11 @@
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // For RTE, sometimes we need to trigger a specific React/Lexical event, but input usually works for basic text
         if (isContentEditable) {
-            element.dispatchEvent(new Event('compositionend', { bubbles: true }));
+            // For Lexical, sometimes a blur/focus helps sync state
+            element.blur();
+            await sleep(100);
+            element.focus();
         }
 
         console.log(`[Echo Reddit Driver] Typed ${typedChars} characters into ${isTextarea ? 'textarea' : 'RTE'}`);
