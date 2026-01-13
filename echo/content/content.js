@@ -148,7 +148,7 @@
             <option value="supportive">🤝 Supportive</option>
             <option value="insightful">💡 Insightful</option>
             <option value="enthusiastic">🎉 Enthusiastic</option>
-            <option value="appreciative">� Appreciative</option>
+            <option value="appreciative">👏 Appreciative</option>
             <option value="casual">😊 Casual</option>
         `;
 
