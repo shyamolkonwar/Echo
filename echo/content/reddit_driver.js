@@ -657,23 +657,23 @@
             }
         }
 
-        // Step 2: Wait with longer timeout (20 seconds) - ONLY target TEXTAREA
+        // Step 2: Wait with longer timeout (20 seconds) - Scan Deep including Shadow DOM
         for (let i = 0; i < 100; i++) { // 100 * 200ms = 20 seconds
-            // Try multiple textarea selectors in priority order
+            // Try standard DOM first
             commentBox = document.querySelector('textarea#innerTextArea') ||
-                document.querySelector('textarea[placeholder*="Join the conversation"]') ||
-                document.querySelector('textarea[placeholder*="conversation"]') ||
                 document.querySelector('textarea[name="text"]') ||
-                document.querySelector('shreddit-composer textarea') ||
-                document.querySelector('faceplate-form textarea');
+                document.querySelector('textarea[placeholder*="conversation"]');
+
+            // If not found, try Shadow DOM traversal
+            if (!commentBox) {
+                commentBox = findCommentBoxInShadowRoots();
+            }
 
             if (commentBox) {
                 console.log('[Echo Reddit Driver] Found comment box:', {
-                    id: commentBox.id,
-                    name: commentBox.name,
-                    placeholder: commentBox.placeholder,
-                    iteration: i,
-                    timeWaited: (i * 200) + 'ms'
+                    id: commentBox.id || 'no-id',
+                    tagName: commentBox.tagName,
+                    shadow: !!commentBox.getRootNode()?.host
                 });
                 break;
             }
@@ -693,13 +693,45 @@
             await sleep(300); // Give time for focus event to trigger UI updates
         } else {
             console.error('[Echo Reddit Driver] Comment box (textarea) not found after 20 seconds');
-            console.log('[Echo Reddit Driver] Available textareas:',
-                document.querySelectorAll('textarea').length);
-            console.log('[Echo Reddit Driver] Page HTML preview:',
-                document.body.innerHTML.substring(0, 500));
+            // Debug info
+            const composers = document.querySelectorAll('shreddit-composer');
+            console.log(`[Echo Reddit Driver] Found ${composers.length} shreddit-composer elements`);
+            composers.forEach((c, i) => console.log(`Composer ${i} shadowRoot:`, !!c.shadowRoot));
         }
 
         return commentBox;
+    }
+
+    /**
+     * Find comment box by piercing Shadow DOMs
+     */
+    function findCommentBoxInShadowRoots() {
+        // Roots to check
+        const hosts = document.querySelectorAll('shreddit-composer, shreddit-app, faceplate-form, div[id^="comment-composer"]');
+
+        for (const host of hosts) {
+            if (host.shadowRoot) {
+                const textarea = host.shadowRoot.querySelector('textarea#innerTextArea, textarea[name="text"], textarea');
+                if (textarea) return textarea;
+
+                // Nested shadow roots? (Reddit usually shallow, but good to check children)
+                const nestedHosts = host.shadowRoot.querySelectorAll('faceplate-form, div');
+                for (const nested of nestedHosts) {
+                    if (nested.shadowRoot) {
+                        const nestedTextarea = nested.shadowRoot.querySelector('textarea');
+                        if (nestedTextarea) return nestedTextarea;
+                    }
+                    // Sometimes it's just in a slot/light DOM but hidden
+                    const slotTextarea = nested.querySelector && nested.querySelector('textarea');
+                    if (slotTextarea) return slotTextarea;
+                }
+            } else {
+                // Check if it's a light DOM child we missed
+                const lightTextarea = host.querySelector('textarea');
+                if (lightTextarea) return lightTextarea;
+            }
+        }
+        return null;
     }
 
     async function generateAndInsertComment(postData, autoSubmit) {
