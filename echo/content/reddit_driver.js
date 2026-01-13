@@ -740,6 +740,12 @@
         if (commentBox) {
             commentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
             await sleep(random(500, 1000));
+
+            // CRITICAL: Click the comment box to activate it before typing
+            console.log('[Echo Reddit Driver] Clicking comment box to activate...');
+            commentBox.click();
+            await sleep(500);
+
             commentBox.focus();
             await sleep(300); // Give time for focus event to trigger UI updates
         } else {
