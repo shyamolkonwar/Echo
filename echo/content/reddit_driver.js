@@ -312,17 +312,21 @@
         // Clear existing content safely
         if (isTextarea) {
             element.value = '';
+            element.dispatchEvent(new Event('input', { bubbles: true }));
         } else {
-            // Try execCommand for clearing if possible, or fallback to textContent
-            // For Reddit's editor, better to NOT clear manually if we can avoid it, or use select all + delete
-            // But for now, let's try setting textContent to empty string, it usually resets visible state
-            if (element.textContent.trim().length > 0) {
-                element.textContent = '';
-            }
+            // For Lexical, select all and delete via selection
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('delete', false); // Delete selection using deprecated but working method
+            await sleep(100);
         }
 
         // Ensure focus again
         element.focus();
+        await sleep(100);
 
         // Type character by character
         let typedChars = 0;
@@ -335,21 +339,23 @@
                 element.value += char;
                 element.dispatchEvent(new Event('input', { bubbles: true }));
             } else {
-                // For ContentEditable / Lexical / Rich Text Editors:
-                // Best method: execCommand 'insertText' (deprecated but reliable for simulating user input)
-                const success = document.execCommand('insertText', false, char);
+                // For ContentEditable / Lexical:
+                // Method: Dispatch InputEvent with insertText type - this is the modern standard
+                const inputEvent = new InputEvent('beforeinput', {
+                    inputType: 'insertText',
+                    data: char,
+                    bubbles: true,
+                    cancelable: true,
+                });
+                element.dispatchEvent(inputEvent);
 
-                // Fallback if execCommand fails (though it shouldn't on Chrome)
-                if (!success) {
-                    element.textContent += char;
-                    // Dispatch legacy textInput event which some frameworks listen to
-                    const evt = document.createEvent('TextEvent');
-                    evt.initTextEvent('textInput', true, true, window, char, 0, "en-US");
-                    element.dispatchEvent(evt);
-
-                    // Also dispatch generic input
-                    element.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+                // Also dispatch the 'input' event that follows a successful beforeinput
+                const afterInputEvent = new InputEvent('input', {
+                    inputType: 'insertText',
+                    data: char,
+                    bubbles: true,
+                });
+                element.dispatchEvent(afterInputEvent);
             }
 
             typedChars++;
@@ -366,13 +372,6 @@
         // Final events to ensure framework detects changes
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
-
-        if (isContentEditable) {
-            // For Lexical, sometimes a blur/focus helps sync state
-            element.blur();
-            await sleep(100);
-            element.focus();
-        }
 
         console.log(`[Echo Reddit Driver] Typed ${typedChars} characters into ${isTextarea ? 'textarea' : 'RTE'}`);
     }
