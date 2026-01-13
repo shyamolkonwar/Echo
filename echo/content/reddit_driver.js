@@ -148,6 +148,15 @@
     // ==================== MAIN AUTO-PILOT LOOP ====================
 
     async function startAutoPilotLoop() {
+        // CRITICAL: Must have BOTH isActive AND isAutoPilot to start
+        if (!isActive) {
+            console.log('[Echo Reddit Driver] Cannot start: isActive is false');
+            return;
+        }
+        if (!isAutoPilot) {
+            console.log('[Echo Reddit Driver] Cannot start: isAutoPilot is false');
+            return;
+        }
         if (isProcessing) {
             console.log('[Echo Reddit Driver] Already processing, skipping');
             return;
@@ -163,10 +172,16 @@
         console.log('[Echo Reddit Driver] Starting auto-pilot loop...');
 
         while (!shouldStop) {
-            // Re-verify state from storage every iteration (handles popup close)
+            // Re-verify state from storage FIRST (handles popup close)
             const currentState = await refreshStateFromStorage();
-            if (!currentState.isActive || !currentState.isAutoPilot) {
-                console.log('[Echo Reddit Driver] State changed, stopping loop');
+
+            // CRITICAL: Stop if EITHER isActive OR isAutoPilot is false
+            if (!currentState.isActive) {
+                console.log('[Echo Reddit Driver] isActive is now false, stopping loop');
+                break;
+            }
+            if (!currentState.isAutoPilot) {
+                console.log('[Echo Reddit Driver] isAutoPilot is now false, stopping loop');
                 break;
             }
 
@@ -175,7 +190,12 @@
 
             // Step 1: Wait before scrolling (humans pause to think)
             await humanWait('beforeScroll');
-            if (shouldStop) break;
+
+            // Check again after long wait
+            if (shouldStop || !isActive || !isAutoPilot) {
+                console.log('[Echo Reddit Driver] Stop signal received during wait');
+                break;
+            }
 
             // Step 2: Human-like scroll
             await humanScroll();
@@ -183,11 +203,16 @@
 
             // Step 3: Wait after scroll (reading time)
             await humanWait('afterScroll');
-            if (shouldStop) break;
+
+            // Check again after long wait
+            if (shouldStop || !isActive || !isAutoPilot) {
+                console.log('[Echo Reddit Driver] Stop signal received during wait');
+                break;
+            }
 
             // Step 4: Scan for target posts
             const target = await scanForTargetPost();
-            if (shouldStop) break;
+            if (shouldStop || !isActive || !isAutoPilot) break;
 
             if (target) {
                 console.log(`[Echo Reddit Driver] Found target: ${target.postData.postId}`);
@@ -203,7 +228,8 @@
                     await humanWait('afterFail');
                 }
 
-                if (shouldStop) break;
+                // Check after processing
+                if (shouldStop || !isActive || !isAutoPilot) break;
             }
 
             // Check session limit
