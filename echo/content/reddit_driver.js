@@ -639,18 +639,50 @@
     async function scrollToCommentBox() {
         let commentBox = null;
 
-        // Wait with timeout - ONLY target TEXTAREA, not contenteditable DIVs
-        for (let i = 0; i < 30; i++) {
-            // Priority order: specific ID first, then by placeholder
-            commentBox = document.querySelector('textarea#innerTextArea') ||
-                document.querySelector('textarea[name="text"]') ||
-                document.querySelector('textarea[placeholder*="conversation"]') ||
-                document.querySelector('shreddit-composer textarea');
+        // Step 1: Try clicking the comment composer area to trigger lazy-load
+        const composerTriggers = [
+            'shreddit-composer',
+            '[data-testid="comment-composer"]',
+            '.comment-composer',
+            'div[placeholder*="conversation"]'
+        ];
 
-            if (commentBox) {
-                console.log('[Echo Reddit Driver] Found comment box:', commentBox.id || commentBox.name || commentBox.tagName);
+        for (const selector of composerTriggers) {
+            const trigger = document.querySelector(selector);
+            if (trigger) {
+                console.log('[Echo Reddit Driver] Clicking composer trigger:', selector);
+                trigger.click();
+                await sleep(1000);
                 break;
             }
+        }
+
+        // Step 2: Wait with longer timeout (20 seconds) - ONLY target TEXTAREA
+        for (let i = 0; i < 100; i++) { // 100 * 200ms = 20 seconds
+            // Try multiple textarea selectors in priority order
+            commentBox = document.querySelector('textarea#innerTextArea') ||
+                document.querySelector('textarea[placeholder*="Join the conversation"]') ||
+                document.querySelector('textarea[placeholder*="conversation"]') ||
+                document.querySelector('textarea[name="text"]') ||
+                document.querySelector('shreddit-composer textarea') ||
+                document.querySelector('faceplate-form textarea');
+
+            if (commentBox) {
+                console.log('[Echo Reddit Driver] Found comment box:', {
+                    id: commentBox.id,
+                    name: commentBox.name,
+                    placeholder: commentBox.placeholder,
+                    iteration: i,
+                    timeWaited: (i * 200) + 'ms'
+                });
+                break;
+            }
+
+            // Log progress every 2 seconds
+            if (i % 10 === 0 && i > 0) {
+                console.log(`[Echo Reddit Driver] Still waiting for comment box... ${i * 0.2}s elapsed`);
+            }
+
             await sleep(200);
         }
 
@@ -658,8 +690,13 @@
             commentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
             await sleep(random(500, 1000));
             commentBox.focus();
+            await sleep(300); // Give time for focus event to trigger UI updates
         } else {
-            console.error('[Echo Reddit Driver] Comment box (textarea) not found after 6 seconds');
+            console.error('[Echo Reddit Driver] Comment box (textarea) not found after 20 seconds');
+            console.log('[Echo Reddit Driver] Available textareas:',
+                document.querySelectorAll('textarea').length);
+            console.log('[Echo Reddit Driver] Page HTML preview:',
+                document.body.innerHTML.substring(0, 500));
         }
 
         return commentBox;
