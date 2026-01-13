@@ -367,7 +367,9 @@
             element.value = text;
             element.dispatchEvent(new Event('input', { bubbles: true }));
         } else {
-            // For Lexical editor - use InputEvent
+            // For Lexical editor - use clipboard paste simulation
+            // This is the most reliable method for complex editors
+
             // First clear existing content
             const selection = window.getSelection();
             const range = document.createRange();
@@ -375,24 +377,54 @@
             selection.removeAllRanges();
             selection.addRange(range);
             document.execCommand('delete', false);
+            await sleep(50);
 
-            // Insert new text using beforeinput events
-            for (const char of text) {
-                const inputEvent = new InputEvent('beforeinput', {
-                    inputType: 'insertText',
-                    data: char,
+            // Method 1: Try clipboard API + paste event
+            try {
+                // Copy text to clipboard
+                await navigator.clipboard.writeText(text);
+
+                // Simulate paste
+                const pasteEvent = new ClipboardEvent('paste', {
                     bubbles: true,
                     cancelable: true,
+                    clipboardData: new DataTransfer()
                 });
-                element.dispatchEvent(inputEvent);
+                pasteEvent.clipboardData.setData('text/plain', text);
+                element.dispatchEvent(pasteEvent);
 
-                const afterInputEvent = new InputEvent('input', {
-                    inputType: 'insertText',
-                    data: char,
-                    bubbles: true,
-                });
-                element.dispatchEvent(afterInputEvent);
+                await sleep(100);
+
+                // Check if it worked
+                if (element.textContent.includes(text.substring(0, 20))) {
+                    console.log('[Echo Reddit Driver] Paste simulation succeeded');
+                    return;
+                }
+            } catch (e) {
+                console.log('[Echo Reddit Driver] Clipboard API failed, trying fallback');
             }
+
+            // Method 2: Use document.execCommand('insertText')
+            element.focus();
+            const success = document.execCommand('insertText', false, text);
+            if (success && element.textContent.includes(text.substring(0, 20))) {
+                console.log('[Echo Reddit Driver] execCommand insertText succeeded');
+                return;
+            }
+
+            // Method 3: Direct DOM manipulation as last resort
+            console.log('[Echo Reddit Driver] Using direct DOM manipulation');
+            element.innerHTML = '';
+            const p = document.createElement('p');
+            p.textContent = text;
+            element.appendChild(p);
+
+            // Dispatch events to notify Lexical
+            element.dispatchEvent(new InputEvent('input', {
+                inputType: 'insertText',
+                data: text,
+                bubbles: true
+            }));
         }
 
         // Final events
