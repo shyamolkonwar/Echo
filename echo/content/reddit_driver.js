@@ -1093,8 +1093,8 @@
         }
 
         if (commentBox) {
-            commentBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await sleep(random(500, 1000));
+            // NOTE: Removing scrollIntoView - we're already on post detail page
+            // and scrolling during comment generation is confusing
 
             // CRITICAL: Click the comment box to activate it before typing
             // This puts the cursor inside and activates the Lexical editor
