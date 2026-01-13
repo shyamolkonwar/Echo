@@ -965,6 +965,18 @@
             }
 
             console.log('[Echo Reddit Driver] Comment inserted successfully!');
+
+            // Step 8b: CRITICAL - Click the comment box again to make content visible
+            // The Lexical editor sometimes doesn't show content until focused
+            const lexicalDiv = document.querySelector('div[data-lexical-editor="true"]');
+            if (lexicalDiv) {
+                console.log('[Echo Reddit Driver] Clicking comment box to reveal content...');
+                lexicalDiv.click();
+                await sleep(300);
+                lexicalDiv.focus();
+                await sleep(300);
+            }
+
             if (shouldStop) return false;
 
             // Step 9: Review pause before submitting
