@@ -45,9 +45,13 @@
         try {
             // Get subreddit name
             const subredditLink = postElement.querySelector(SELECTORS.subreddit);
-            const subreddit = subredditLink ?
-                subredditLink.getAttribute('href').replace('/r/', '').replace('/', '') :
-                'unknown';
+            let subreddit = 'unknown';
+            if (subredditLink) {
+                const href = subredditLink.getAttribute('href') || '';
+                // Extract just the subreddit name from /r/SubredditName/... or /r/SubredditName
+                const match = href.match(/\/r\/([^\/]+)/);
+                subreddit = match ? match[1] : subredditLink.textContent.trim().replace(/^r\//, '');
+            }
 
             // Get post title
             const titleElement = postElement.querySelector(SELECTORS.postTitle);
