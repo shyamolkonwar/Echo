@@ -123,13 +123,68 @@
     function injectManualGenerateButton(composer) {
         if (document.querySelector('.echo-reddit-generate-btn')) return;
 
+        // Create container for button and tone selector
+        const container = document.createElement('div');
+        container.className = 'echo-reddit-controls';
+        container.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        `;
+
+        // Create tone selector dropdown
+        const toneSelect = document.createElement('select');
+        toneSelect.className = 'echo-reddit-tone-select';
+        toneSelect.style.cssText = `
+            padding: 8px 12px;
+            background: #1a1a1b;
+            color: white;
+            border: 1px solid #343536;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        `;
+        toneSelect.innerHTML = `
+            <option value="witty">😏 Witty</option>
+            <option value="helpful">🤝 Helpful</option>
+            <option value="snarky">😈 Snarky</option>
+            <option value="professional">💼 Professional</option>
+        `;
+
+        // Load saved tone
+        chrome.storage.local.get('redditQuickTone').then(data => {
+            toneSelect.value = data.redditQuickTone || 'witty';
+        });
+
+        // Save tone on change
+        toneSelect.addEventListener('change', async () => {
+            const tone = toneSelect.value;
+            await chrome.storage.local.set({ redditQuickTone: tone });
+
+            // Also update platforms storage
+            const { platforms } = await chrome.storage.local.get('platforms');
+            if (platforms && platforms.reddit) {
+                platforms.reddit.quickTone = tone;
+                await chrome.storage.local.set({ platforms });
+            }
+        });
+
+        // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-reddit-generate-btn';
         button.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
-            <span>Generate with Echo</span>
+            <span>Generate</span>
         `;
         button.title = 'Generate AI comment for this post';
         button.type = 'button';
@@ -148,7 +203,6 @@
             cursor: pointer;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             box-shadow: 0 2px 8px rgba(255, 69, 0, 0.3);
-            margin: 8px 0;
             transition: all 0.2s ease;
         `;
 
@@ -162,22 +216,25 @@
             button.style.boxShadow = '0 2px 8px rgba(255, 69, 0, 0.3)';
         });
 
-        button.addEventListener('click', async () => await handleManualGenerate(button, composer));
+        button.addEventListener('click', async () => await handleManualGenerate(button, toneSelect.value));
+
+        container.appendChild(toneSelect);
+        container.appendChild(button);
 
         const composerParent = composer.parentElement;
         if (composerParent) {
-            composerParent.insertBefore(button, composer.nextSibling);
+            composerParent.insertBefore(container, composer.nextSibling);
         } else {
             const form = document.querySelector('faceplate-form[action*="create-comment"]');
             if (form && form.parentElement) {
-                form.parentElement.appendChild(button);
+                form.parentElement.appendChild(container);
             }
         }
 
-        console.log('[Echo Reddit Driver] Manual generate button injected');
+        console.log('[Echo Reddit Driver] Manual generate button with tone selector injected');
     }
 
-    async function handleManualGenerate(button, composer) {
+    async function handleManualGenerate(button, tone) {
         if (button.disabled) return;
 
         try {
@@ -208,13 +265,14 @@
                 throw new Error('Could not extract post content');
             }
 
-            console.log('[Echo Reddit Driver] Manual generate for post:', postData.postId);
+            console.log('[Echo Reddit Driver] Manual generate for post:', postData.postId, 'with tone:', tone);
 
-            // Request AI comment generation
+            // Request AI comment generation with tone
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: postData,
-                platform: 'reddit'
+                platform: 'reddit',
+                quickTone: tone || 'witty'
             });
 
             if (response.error) throw new Error(response.error);
@@ -240,7 +298,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
-                <span>Generate with Echo</span>
+                <span>Generate</span>
             `;
         } finally {
             button.disabled = false;
@@ -544,5 +602,3 @@
     console.log('[Echo Reddit Driver] Module loaded');
 
 })();
-</CodeContent >
-    <parameter name="EmptyFile">false

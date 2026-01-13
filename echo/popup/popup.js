@@ -265,18 +265,30 @@ class EchoPopup {
         }
 
         // 4. Update Context Controls (Toggles)
-        // Master Toggle (Global or Platform specific?) -> Currently global isActive in old logic
-        // We'll map global isActive to the visible toggle for now
         const masterToggle = document.getElementById('master-toggle');
         if (masterToggle) masterToggle.checked = data.isActive || false;
         this.updateStatusIndicator(data.isActive || false);
 
-        // Autopilot Toggles
+        // Autopilot Toggle (LinkedIn only - Reddit no longer has autopilot)
         const webAutopilot = document.getElementById('autopilot-toggle');
         if (webAutopilot && platforms.linkedin) webAutopilot.checked = platforms.linkedin.autopilot || false;
 
-        const redditAutopilot = document.querySelector('.reddit-autopilot-toggle');
-        if (redditAutopilot && platforms.reddit) redditAutopilot.checked = platforms.reddit.autopilot || false;
+        // 5. Load Tone Settings into Radio Buttons
+        const linkedinTone = platforms.linkedin?.quickTone || 'professional';
+        const redditTone = platforms.reddit?.quickTone || 'witty';
+
+        // Set LinkedIn tone radio
+        document.querySelectorAll('input[name="quick-tone"]').forEach(radio => {
+            radio.checked = radio.value === linkedinTone;
+        });
+
+        // Set Reddit tone radio
+        document.querySelectorAll('input[name="reddit-tone"]').forEach(radio => {
+            radio.checked = radio.value === redditTone;
+        });
+
+        // Also save to legacy quickTone key for content script compatibility
+        await chrome.storage.local.set({ quickTone: linkedinTone, redditQuickTone: redditTone });
     }
 
     async saveSettings() {
@@ -355,7 +367,15 @@ class EchoPopup {
             await chrome.storage.local.set({ platforms });
         }
 
+        // Also save to legacy storage key for content script compatibility
+        if (platform === 'linkedin') {
+            await chrome.storage.local.set({ quickTone });
+        } else if (platform === 'reddit') {
+            await chrome.storage.local.set({ redditQuickTone: quickTone });
+        }
+
         this.sendMessageToActiveTab({ type: 'UPDATE_TONE', quickTone, platform });
+        this.showToast(`Tone set to ${quickTone}`);
     }
 
     // ==================== UTILS ====================

@@ -114,24 +114,86 @@
         // Skip if autopilot is ON or button already exists
         if (isAutoPilot || commentBox.querySelector('.echo-manual-btn')) return;
 
+        // Create container for tone selector and button
+        const container = document.createElement('div');
+        container.className = 'echo-linkedin-controls';
+        container.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+        `;
+
+        // Create tone selector dropdown
+        const toneSelect = document.createElement('select');
+        toneSelect.className = 'echo-linkedin-tone-select';
+        toneSelect.style.cssText = `
+            padding: 5px 10px;
+            background: #f3f2ef;
+            color: #191919;
+            border: 1px solid #d9d9d9;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 24px;
+        `;
+        toneSelect.innerHTML = `
+            <option value="professional">💼 Professional</option>
+            <option value="casual">😊 Casual</option>
+            <option value="insightful">💡 Insightful</option>
+            <option value="witty">😏 Witty</option>
+        `;
+
+        // Load saved tone
+        chrome.storage.local.get('quickTone').then(data => {
+            toneSelect.value = data.quickTone || 'professional';
+        });
+
+        // Save tone on change
+        toneSelect.addEventListener('change', async () => {
+            const tone = toneSelect.value;
+            quickTone = tone; // Update global variable
+            await chrome.storage.local.set({ quickTone: tone });
+
+            // Also update platforms storage
+            const { platforms } = await chrome.storage.local.get('platforms');
+            if (platforms && platforms.linkedin) {
+                platforms.linkedin.quickTone = tone;
+                await chrome.storage.local.set({ platforms });
+            }
+        });
+
+        // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-manual-btn';
-        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>Generate with Echo</span>`;
+        button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg><span>Generate</span>`;
         button.title = 'Generate AI comment';
         button.type = 'button';
-        button.addEventListener('click', async () => await handleManualGenerate(commentBox));
+        button.addEventListener('click', async () => {
+            quickTone = toneSelect.value; // Use current selection
+            await handleManualGenerate(commentBox);
+        });
 
-        // Try to find the best place to insert the button
+        container.appendChild(toneSelect);
+        container.appendChild(button);
+
+        // Try to find the best place to insert the container
         const buttonGroup = commentBox.querySelector('.comments-comment-box__button-group, .comments-comment-texteditor__toolbar');
         const editor = commentBox.querySelector(SELECTORS.commentEditor);
 
         if (buttonGroup) {
-            buttonGroup.appendChild(button);
+            buttonGroup.appendChild(container);
         } else if (editor && editor.parentElement) {
-            editor.parentElement.insertBefore(button, editor);
+            editor.parentElement.insertBefore(container, editor);
         } else {
             // Fallback: append to comment box itself
-            commentBox.appendChild(button);
+            commentBox.appendChild(container);
         }
     }
 
