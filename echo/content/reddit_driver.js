@@ -532,11 +532,32 @@
             }
 
             // Step 3: Click comment button to navigate
-            const commentButton = postElement.querySelector('a[data-post-click-location="comments-button"]');
+            // Try multiple selectors for the comment button
+            let commentButton = postElement.querySelector('a[data-post-click-location="comments-button"]') ||
+                postElement.querySelector('a[name="comments-action-button"]') ||
+                postElement.querySelector('a[aria-label*="comment"]') ||
+                postElement.querySelector('a[href*="/comments/"]');
+
+            // Fallback: search by text content
+            if (!commentButton) {
+                const links = postElement.querySelectorAll('a');
+                for (const link of links) {
+                    const text = link.textContent.toLowerCase();
+                    const href = link.getAttribute('href') || '';
+                    if (text.includes('comment') || href.includes('/comments/')) {
+                        commentButton = link;
+                        break;
+                    }
+                }
+            }
+
             if (!commentButton) {
                 console.error('[Echo Reddit Driver] Comment button not found');
+                console.log('[Echo Reddit Driver] Post HTML:', postElement.innerHTML.substring(0, 500));
                 return false;
             }
+
+            console.log('[Echo Reddit Driver] Clicking comment button...');
             commentButton.click();
 
             // Step 4: Wait for page to load (variable time)
