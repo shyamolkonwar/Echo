@@ -60,6 +60,9 @@
             startFeedObserver();
         }
 
+        // Always start manual button observer (works on post detail pages)
+        startManualButtonObserver();
+
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener(handleMessage);
 
@@ -143,6 +146,258 @@
         if (message.type === 'UPDATE_SUBREDDITS') {
             targetSubreddits = message.subreddits || [];
         }
+    }
+
+    // ==================== MANUAL GENERATE BUTTON ====================
+
+    function startManualButtonObserver() {
+        console.log('[Echo Reddit Driver] Starting manual button observer...');
+
+        // Check if we're on a post detail page
+        const checkAndInjectButton = () => {
+            // Only inject on post detail pages (URLs like /r/subreddit/comments/...)
+            if (!window.location.pathname.includes('/comments/')) return;
+
+            // Find the comment composer
+            const composer = document.querySelector('shreddit-composer, [data-testid="comment-composer"]');
+            if (composer && !document.querySelector('.echo-reddit-generate-btn')) {
+                injectManualGenerateButton(composer);
+            }
+        };
+
+        // Check immediately
+        setTimeout(checkAndInjectButton, 1000);
+
+        // Observe for dynamic loading
+        const observer = new MutationObserver((mutations) => {
+            if (isAutoPilot) return; // Skip if autopilot is running
+            checkAndInjectButton();
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // Also check on URL changes (SPA navigation)
+        let lastUrl = location.href;
+        new MutationObserver(() => {
+            if (location.href !== lastUrl) {
+                lastUrl = location.href;
+                setTimeout(checkAndInjectButton, 1500);
+            }
+        }).observe(document, { subtree: true, childList: true });
+    }
+
+    function injectManualGenerateButton(composer) {
+        // Don't inject if button already exists
+        if (document.querySelector('.echo-reddit-generate-btn')) return;
+
+        const button = document.createElement('button');
+        button.className = 'echo-reddit-generate-btn';
+        button.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <span>Generate with Echo</span>
+        `;
+        button.title = 'Generate AI comment for this post';
+        button.type = 'button';
+
+        // Style the button
+        button.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #FF4500 0%, #FF5722 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            box-shadow: 0 2px 8px rgba(255, 69, 0, 0.3);
+            margin: 8px 0;
+            transition: all 0.2s ease;
+        `;
+
+        button.addEventListener('mouseenter', () => {
+            button.style.transform = 'translateY(-1px)';
+            button.style.boxShadow = '0 4px 12px rgba(255, 69, 0, 0.4)';
+        });
+
+        button.addEventListener('mouseleave', () => {
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 2px 8px rgba(255, 69, 0, 0.3)';
+        });
+
+        button.addEventListener('click', async () => await handleManualGenerate(button, composer));
+
+        // Find a good place to insert the button - after the composer
+        const composerParent = composer.parentElement;
+        if (composerParent) {
+            composerParent.insertBefore(button, composer.nextSibling);
+        } else {
+            // Fallback: insert after the form
+            const form = document.querySelector('faceplate-form[action*="create-comment"]');
+            if (form && form.parentElement) {
+                form.parentElement.appendChild(button);
+            }
+        }
+
+        console.log('[Echo Reddit Driver] Manual generate button injected');
+    }
+
+    async function handleManualGenerate(button, composer) {
+        if (button.disabled) return;
+
+        try {
+            // Set loading state
+            button.disabled = true;
+            button.style.opacity = '0.7';
+            button.style.cursor = 'wait';
+            const originalHTML = button.innerHTML;
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="animation: spin 1s linear infinite;">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20"/>
+                </svg>
+                <span>Generating...</span>
+            `;
+
+            // Add spin animation if not already present
+            if (!document.querySelector('#echo-spin-style')) {
+                const style = document.createElement('style');
+                style.id = 'echo-spin-style';
+                style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+                document.head.appendChild(style);
+            }
+
+            // Extract post data
+            const post = document.querySelector('shreddit-post, [data-post-id]');
+            if (!post) throw new Error('Could not find post element');
+
+            const postData = window.extractRedditPostData?.(post);
+            if (!postData || !postData.content || postData.content.length < 10) {
+                throw new Error('Could not extract post content');
+            }
+
+            console.log('[Echo Reddit Driver] Manual generate for post:', postData.postId);
+
+            // Request AI comment generation
+            const response = await chrome.runtime.sendMessage({
+                type: 'GENERATE_COMMENT',
+                postData: postData,
+                platform: 'reddit'
+            });
+
+            if (response.error) throw new Error(response.error);
+            if (!response.comment) throw new Error('No comment generated');
+
+            console.log('[Echo Reddit Driver] Generated comment:', response.comment.substring(0, 50) + '...');
+
+            // Find the comment box and insert the text
+            const commentBox = await findAndActivateCommentBox();
+            if (!commentBox) throw new Error('Could not find comment box');
+
+            // Insert the comment using the proper method for Lexical
+            await insertCommentIntoEditor(commentBox, response.comment);
+
+            showNotification('✨ Comment generated! Review and post when ready.');
+
+            // Restore button
+            button.innerHTML = originalHTML;
+
+        } catch (error) {
+            console.error('[Echo Reddit Driver] Manual generation error:', error);
+            showNotification(`Error: ${error.message}`, 'error');
+            button.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                <span>Generate with Echo</span>
+            `;
+        } finally {
+            button.disabled = false;
+            button.style.opacity = '1';
+            button.style.cursor = 'pointer';
+        }
+    }
+
+    async function findAndActivateCommentBox() {
+        // Click the textarea wrapper first to expand it
+        const triggers = ['div.text-area-wrapper', 'textarea#innerTextArea', 'shreddit-composer'];
+        for (const selector of triggers) {
+            const trigger = document.querySelector(selector);
+            if (trigger) {
+                trigger.click();
+                await sleep(500);
+                break;
+            }
+        }
+
+        // Wait for Lexical editor to appear
+        for (let i = 0; i < 20; i++) {
+            const lexicalDiv = document.querySelector('div[data-lexical-editor="true"][contenteditable="true"]');
+            if (lexicalDiv) {
+                lexicalDiv.click();
+                await sleep(200);
+                lexicalDiv.focus();
+                return lexicalDiv;
+            }
+            await sleep(100);
+        }
+
+        // Fallback to textarea
+        const textarea = document.querySelector('textarea#innerTextArea');
+        if (textarea && textarea.offsetHeight > 0) {
+            textarea.click();
+            textarea.focus();
+            return textarea;
+        }
+
+        return null;
+    }
+
+    async function insertCommentIntoEditor(element, text) {
+        const isTextarea = element.tagName.toLowerCase() === 'textarea';
+
+        element.focus();
+        await sleep(100);
+
+        if (isTextarea) {
+            element.value = text;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            // For Lexical editor - use InputEvent
+            // First clear existing content
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('delete', false);
+
+            // Insert new text using beforeinput events
+            for (const char of text) {
+                const inputEvent = new InputEvent('beforeinput', {
+                    inputType: 'insertText',
+                    data: char,
+                    bubbles: true,
+                    cancelable: true,
+                });
+                element.dispatchEvent(inputEvent);
+
+                const afterInputEvent = new InputEvent('input', {
+                    inputType: 'insertText',
+                    data: char,
+                    bubbles: true,
+                });
+                element.dispatchEvent(afterInputEvent);
+            }
+        }
+
+        // Final events
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     // ==================== MAIN AUTO-PILOT LOOP ====================
