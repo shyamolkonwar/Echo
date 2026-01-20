@@ -19,12 +19,22 @@
         console.log('[Echo X Driver] Initializing...');
 
         await refreshStateFromStorage();
+        console.log(`[Echo X Driver] Initial isActive: ${isActive}`);
 
-        // Initialize autopilot driver
+        // Initialize autopilot driver (wait for script to load)
+        let retries = 0;
+        while (retries < 10 && !window.XAutoPilotDriver) {
+            console.log(`[Echo X Driver] Waiting for XAutoPilotDriver... (${retries + 1}/10)`);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            retries++;
+        }
+
         if (window.XAutoPilotDriver) {
             autoPilotDriver = new window.XAutoPilotDriver();
             await autoPilotDriver.init();
             console.log('[Echo X Driver] Autopilot driver initialized');
+        } else {
+            console.error('[Echo X Driver] XAutoPilotDriver class not found!');
         }
 
         // Start manual button observer
@@ -35,18 +45,23 @@
 
         // Listen for storage changes
         chrome.storage.onChanged.addListener(async (changes, namespace) => {
+            console.log('[Echo X Driver] Storage changed:', changes);
             if (namespace === 'local' && changes.isActive !== undefined) {
+                const oldValue = isActive;
                 isActive = changes.isActive.newValue;
+                console.log(`[Echo X Driver] isActive: ${oldValue} → ${isActive}`);
 
                 // Control autopilot based on isActive
                 if (autoPilotDriver) {
                     if (isActive) {
-                        console.log('[Echo X Driver] Starting autopilot...');
+                        console.log('[Echo X Driver] 🚀 Starting autopilot...');
                         await autoPilotDriver.start();
                     } else {
-                        console.log('[Echo X Driver] Stopping autopilot...');
+                        console.log('[Echo X Driver] ⏹️ Stopping autopilot...');
                         autoPilotDriver.stop();
                     }
+                } else {
+                    console.error('[Echo X Driver] ⚠️ Autopilot driver not available!');
                 }
             }
         });
