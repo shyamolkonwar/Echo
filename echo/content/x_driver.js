@@ -100,14 +100,30 @@
     }
 
     function injectToolbarControls(toolbar) {
-        // Create container
+        // Find the scrollable list inside the toolbar
+        const scrollList = toolbar.querySelector('[data-testid="ScrollSnap-List"]');
+        if (!scrollList) {
+            console.log('[Echo X Driver] ScrollSnap-List not found in toolbar');
+            return;
+        }
+
+        // Find the GIF button's parent wrapper
+        const gifButton = scrollList.querySelector('[data-testid="gifSearchButton"]');
+        const gifWrapper = gifButton?.closest('[role="presentation"]');
+
+        if (!gifWrapper) {
+            console.log('[Echo X Driver] GIF button wrapper not found');
+            return;
+        }
+
+        // Create container matching native toolbar item structure
         const container = document.createElement('div');
-        container.className = 'echo-x-controls echo-x-controls-modal';
+        container.setAttribute('role', 'presentation');
+        container.className = 'css-175oi2r r-14tvyh0 r-cpa5s6 echo-x-controls echo-x-controls-modal';
         container.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-left: 8px;
+            gap: 4px;
         `;
 
         const { toneSelect, button } = createControls();
@@ -115,13 +131,12 @@
         container.appendChild(toneSelect);
         container.appendChild(button);
 
-        toolbar.appendChild(container); // Append to end of toolbar
+        // Insert AFTER the GIF button wrapper
+        gifWrapper.insertAdjacentElement('afterend', container);
 
         // Button Logic
         button.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // We are inside a toolbar. 
-            // Context could be a Modal OR Inline Reply (Detail view)
             const modal = toolbar.closest('[role="dialog"]');
             const inlineContext = toolbar.closest('.DraftEditor-root')?.parentElement || toolbar.parentElement;
 
