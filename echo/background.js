@@ -614,3 +614,30 @@ if (chrome.alarms) {
         }
     });
 }
+
+// ==================== X (TWITTER) HEADER SNIFFER ====================
+// Captures authentication tokens for client-side API calls
+if (chrome.webRequest && chrome.webRequest.onBeforeSendHeaders) {
+    chrome.webRequest.onBeforeSendHeaders.addListener(
+        (details) => {
+            const headers = details.requestHeaders;
+            const auth = headers.find(h => h.name.toLowerCase() === 'authorization');
+            const csrf = headers.find(h => h.name.toLowerCase() === 'x-csrf-token');
+            // cookie is usually handled automatically by browser context, but we can capture if needed
+            // const cookie = headers.find(h => h.name.toLowerCase() === 'cookie');
+
+            if (auth && csrf) {
+                // Store these "Keys to the Kingdom"
+                chrome.storage.local.set({
+                    x_session: {
+                        bearer: auth.value,
+                        csrf: csrf.value,
+                        timestamp: Date.now()
+                    }
+                });
+            }
+        },
+        { urls: ["https://x.com/i/api/*", "https://twitter.com/i/api/*"] },
+        ["requestHeaders"]
+    );
+}

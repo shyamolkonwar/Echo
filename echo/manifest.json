@@ -8,7 +8,8 @@
         "storage",
         "scripting",
         "alarms",
-        "tabs"
+        "tabs",
+        "webRequest"
     ],
     "host_permissions": [
         "*://www.linkedin.com/*",
@@ -84,6 +85,7 @@
                 "lib/html2canvas.min.js",
                 "content/platform_router.js",
                 "content/x_logic.js",
+                "content/x_analytics.js",
                 "content/x_driver.js",
                 "content/driver.js",
                 "content/content.js"
