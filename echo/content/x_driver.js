@@ -100,36 +100,40 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            margin: 8px 0 8px 48px;
-            padding: 8px;
-            background: rgba(0, 0, 0, 0.02);
-            border-radius: 12px;
+            margin-left: auto; /* Push to right */
         `;
 
         // Create tone selector dropdown
         const toneSelect = document.createElement('select');
         toneSelect.className = 'echo-x-tone-select';
         toneSelect.style.cssText = `
-            padding: 6px 10px;
-            background: #15202b;
-            color: #e7e9ea;
-            border: 1px solid #38444d;
+            padding: 4px 8px;
+            background: transparent;
+            color: #71767b;
+            border: 1px solid transparent;
             border-radius: 16px;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e7e9ea' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 28px;
+            transition: all 0.2s;
         `;
         toneSelect.innerHTML = `
             <option value="shitposter">🤪 Shitposter</option>
             <option value="contrarian">🤔 Contrarian</option>
             <option value="builder">🛠️ Builder</option>
         `;
+
+        // Hover effect for tone selector
+        toneSelect.addEventListener('mouseenter', () => {
+            toneSelect.style.backgroundColor = 'rgba(29, 155, 240, 0.1)';
+            toneSelect.style.color = '#1d9bf0';
+        });
+        toneSelect.addEventListener('mouseleave', () => {
+            toneSelect.style.backgroundColor = 'transparent';
+            toneSelect.style.color = '#71767b';
+        });
 
         // Load saved tone
         chrome.storage.local.get('xQuickTone').then(data => {
@@ -151,51 +155,53 @@
         // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-x-generate-btn';
+        // Icon only for compactness in feed? Or keep text? User liked the button.
+        // Let's keep it but make it blend better with actions bar or stand out as "the AI action"
         button.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
-            <span>Generate Reply</span>
         `;
-        button.title = 'Generate AI reply with Echo';
+        button.title = 'Generate AI reply';
         button.type = 'button';
         button.style.cssText = `
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: linear-gradient(135deg, #1d9bf0 0%, #0c7abf 100%);
-            color: white;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: transparent;
+            color: #71767b;
             border: none;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
+            border-radius: 50%;
             cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            white-space: nowrap;
-            box-shadow: 0 2px 6px rgba(29, 155, 240, 0.3);
             transition: all 0.2s ease;
         `;
 
         button.addEventListener('mouseenter', () => {
-            button.style.transform = 'translateY(-1px)';
-            button.style.boxShadow = '0 4px 12px rgba(29, 155, 240, 0.4)';
+            button.style.backgroundColor = 'rgba(29, 155, 240, 0.1)';
+            button.style.color = '#1d9bf0';
         });
 
         button.addEventListener('mouseleave', () => {
-            button.style.transform = 'translateY(0)';
-            button.style.boxShadow = '0 2px 6px rgba(29, 155, 240, 0.3)';
+            button.style.backgroundColor = 'transparent';
+            button.style.color = '#71767b';
         });
 
-        button.addEventListener('click', async () => await handleManualGenerate(button, tweet, toneSelect.value));
+        button.addEventListener('click', async (e) => {
+            e.stopPropagation(); // Prevent tweet click
+            await handleManualGenerate(button, tweet, toneSelect.value);
+        });
 
         container.appendChild(toneSelect);
         container.appendChild(button);
 
-        // Find a good place to insert - after the tweet actions bar
+        // Find a good place to insert - INTO the actions bar
         const actionsBar = tweet.querySelector('[role="group"]');
-        if (actionsBar && actionsBar.parentElement) {
-            actionsBar.parentElement.insertBefore(container, actionsBar.nextSibling);
+        if (actionsBar) {
+            // Check if we can append directly
+            actionsBar.appendChild(container);
         } else {
             // Fallback: append to tweet
             tweet.appendChild(container);
