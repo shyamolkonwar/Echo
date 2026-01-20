@@ -12,6 +12,8 @@
         currentPlatform = 'linkedin';
     } else if (hostname.includes('reddit.com')) {
         currentPlatform = 'reddit';
+    } else if (hostname.includes('x.com') || hostname.includes('twitter.com')) {
+        currentPlatform = 'x';
     }
 
     // Export platform detection
@@ -21,7 +23,7 @@
 
     // Utility: Check if we're on a supported platform
     window.isSupportedPlatform = function () {
-        return currentPlatform === 'linkedin' || currentPlatform === 'reddit';
+        return currentPlatform === 'linkedin' || currentPlatform === 'reddit' || currentPlatform === 'x';
     };
 
     // Utility: Get platform name

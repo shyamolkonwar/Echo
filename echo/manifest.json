@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Echo - Multi-Platform Ghost Writer",
-    "version": "1.2.0",
-    "description": "Your voice, echoed. AI-powered LinkedIn & Reddit comment assistant with vision support and autonomous verification.",
+    "version": "1.3.0",
+    "description": "Your voice, echoed. AI-powered LinkedIn, Reddit & X comment assistant with vision support and autonomous verification.",
     "permissions": [
         "activeTab",
         "storage",
@@ -13,6 +13,8 @@
     "host_permissions": [
         "*://www.linkedin.com/*",
         "*://*.reddit.com/*",
+        "*://*.x.com/*",
+        "*://*.twitter.com/*",
         "*://api.openai.com/*",
         "*://generativelanguage.googleapis.com/*",
         "*://api.deepseek.com/*"
@@ -44,6 +46,8 @@
                 "content/platform_router.js",
                 "content/reddit_logic.js",
                 "content/reddit_driver.js",
+                "content/x_logic.js",
+                "content/x_driver.js",
                 "content/driver.js",
                 "content/content.js"
             ],
@@ -61,6 +65,26 @@
                 "content/platform_router.js",
                 "content/reddit_logic.js",
                 "content/reddit_driver.js",
+                "content/x_logic.js",
+                "content/x_driver.js",
+                "content/driver.js",
+                "content/content.js"
+            ],
+            "css": [
+                "content/content.css"
+            ],
+            "run_at": "document_idle"
+        },
+        {
+            "matches": [
+                "*://*.x.com/*",
+                "*://*.twitter.com/*"
+            ],
+            "js": [
+                "lib/html2canvas.min.js",
+                "content/platform_router.js",
+                "content/x_logic.js",
+                "content/x_driver.js",
                 "content/driver.js",
                 "content/content.js"
             ],

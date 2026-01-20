@@ -62,9 +62,14 @@ async function handleGenerateComment(message, sendResponse) {
         }
 
         // Build the prompt (platform-specific)
-        const prompt = platform === 'reddit'
-            ? buildRedditPrompt(postData, quickTone, settings)
-            : buildPrompt(postData, quickTone, settings);
+        let prompt;
+        if (platform === 'reddit') {
+            prompt = buildRedditPrompt(postData, quickTone, settings);
+        } else if (platform === 'x') {
+            prompt = buildXPrompt(postData, quickTone, settings);
+        } else {
+            prompt = buildPrompt(postData, quickTone, settings);
+        }
 
         // Call the appropriate API (vision or text)
         let comment;
@@ -322,6 +327,81 @@ function getSubredditRules(subreddit, flair) {
 
     // Default rule
     return `**Subreddit Culture:** Be authentic and conversational. Match the tone of other comments in r/${subreddit}.`;
+}
+
+// ==================== X (TWITTER) SPECIFIC PROMPT ====================
+function buildXPrompt(postData, quickTone, settings) {
+    const hasImage = postData.hasImage === true;
+
+    // Map X-specific tones
+    const toneDescriptions = {
+        'shitposter': 'Chaotic shitposter energy. Lowercase, memes, very short. Examples: "real", "big if true", "this", "lmao what". Maximum 50 characters. Be unhinged but not offensive.',
+        'contrarian': 'Contrarian devil\'s advocate. Disagree or ask a challenging question. Push back on the premise. Be provocative but intelligent.',
+        'builder': 'Supportive builder/tech community vibe. Technical but encouraging. Share your experience building. Use "shipped", "built", "launched" language.',
+        'threadboi': 'Thread-boi style. Start with phrases like "This is a masterclass in..." or "Everyone is missing the point..." Be slightly pretentious but insightful.'
+    };
+
+    const activeTone = toneDescriptions[quickTone] || toneDescriptions['shitposter'];
+
+    const systemPrompt = `# SYSTEM IDENTITY & CORE DIRECTIVE
+You are **Echo**, an expert X (Twitter) conversationalist. Your goal is to generate authentic, viral-worthy replies that blend seamlessly with the platform culture.
+
+# PLATFORM: X (TWITTER)
+This is X/Twitter. NOT LinkedIn. NOT Reddit. Completely different culture.
+
+# SECTION 1: X-SPECIFIC RULES (CRITICAL - FOLLOW ALL)
+
+### 1.1 Character Limit
+- MAXIMUM: 280 characters
+- IDEAL: Under 100 characters
+- Shorter is usually better. Brevity is king.
+
+### 1.2 Lowercase Acceptable
+- For casual/shitposter tones, lowercase is preferred
+- Don't capitalize every sentence like a formal email
+- Example: "this is exactly what i've been saying" (not "This is exactly what I've been saying.")
+
+### 1.3 NO HASHTAGS
+- Never use hashtags. Zero. Not a single one.
+- Hashtags make you look like a bot or a brand.
+
+### 1.4 NO FORMAL GREETINGS
+- Don't say "Dear @username" or "Hi @username"
+- Just reply directly. Talk casually.
+
+### 1.5 NO EM DASHES
+- Never use em dashes (—). They're an AI tell.
+- Use periods or commas instead.
+
+### 1.6 NO EMOJIS (Usually)
+- Avoid most emojis. They're cringe on X.
+- Exception: 💀 or 😭 for comedic effect (sparingly)
+
+${hasImage ? `
+# SECTION 2: IMAGE PRESENT
+The tweet contains an image. Reference it if relevant but don't over-describe.` : ''}
+
+# SECTION 3: POST CONTEXT
+**Author:** ${postData.authorHandle || '@unknown'}
+**Tweet:** "${postData.content}"
+
+# SECTION 4: YOUR TONE (CRITICAL)
+**TONE:** ${activeTone}
+
+Write your reply in EXACTLY this tone. This is the most important instruction.
+
+# SECTION 5: WHAT MAKES A GOOD X REPLY
+1. Add value or entertainment
+2. Be quotable/shareable
+3. Don't just agree. Add a twist.
+4. Hot takes > safe takes
+5. One-liners often perform best
+
+Generate ONLY the final reply. No explanations. No quotes around it. Remember the 280 character max.`;
+
+    const userPrompt = `Generate an X/Twitter reply for this tweet.`;
+
+    return { systemPrompt, userPrompt };
 }
 
 // Call OpenAI API
