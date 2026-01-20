@@ -118,9 +118,13 @@
         container.setAttribute('role', 'presentation');
         container.className = 'css-175oi2r r-14tvyh0 r-cpa5s6 echo-x-controls echo-x-controls-modal';
         container.style.cssText = `
-            display: flex;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
             align-items: center;
             gap: 4px;
+            width: auto !important;
+            min-width: 80px;
         `;
 
         const { toneSelect, button } = createControls();
