@@ -352,19 +352,19 @@
             // The toolbar is usually a sibling of the textarea wrapper or inside the same form
             const wrapper = buttonContext.closest('.DraftEditor-root') || buttonContext.closest('[data-testid="tweetTextarea_0_label"]')?.parentElement || buttonContext.closest('.css-175oi2r.r-16y2uox.r-1wbh5a2');
             if (wrapper) {
-                textarea = wrapper.querySelector('div[data-testid="tweetTextarea_0"]');
+                textarea = wrapper.querySelector('[data-testid="tweetTextarea_0"]');
             } else {
                 // Try going up further
                 const modal = buttonContext.closest('[role="dialog"]');
                 if (modal) {
-                    textarea = modal.querySelector('div[data-testid="tweetTextarea_0"]');
+                    textarea = modal.querySelector('[data-testid="tweetTextarea_0"]');
                 }
             }
         }
 
         // Fallback or Global search if relative failed
         if (!textarea) {
-            textarea = document.querySelector('div[data-testid="tweetTextarea_0"]');
+            textarea = document.querySelector('[data-testid="tweetTextarea_0"]');
         }
 
         if (!textarea) {
@@ -391,7 +391,8 @@
             await sleep(100);
 
             // Check if it worked
-            if (textarea.textContent.includes(text.substring(0, 20))) {
+            const currentContent = textarea.value || textarea.textContent;
+            if (currentContent.includes(text.substring(0, 20))) {
                 console.log('[Echo X Driver] Clipboard paste succeeded');
                 return;
             }
@@ -407,19 +408,26 @@
             return;
         }
 
-        // Last resort: Direct DOM
+        // Last resort: Direct DOM / Value set
         console.log('[Echo X Driver] Using direct DOM manipulation');
-        const editable = textarea.querySelector('[contenteditable="true"]') || textarea;
-        editable.innerHTML = '';
-        const p = document.createElement('span');
-        p.textContent = text;
-        editable.appendChild(p);
 
-        editable.dispatchEvent(new InputEvent('input', {
-            inputType: 'insertText',
-            data: text,
-            bubbles: true
-        }));
+        if (textarea.tagName === 'TEXTAREA') {
+            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+            nativeTextAreaValueSetter.call(textarea, text);
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            const editable = textarea.querySelector('[contenteditable="true"]') || textarea;
+            editable.innerHTML = '';
+            const p = document.createElement('span');
+            p.textContent = text;
+            editable.appendChild(p);
+
+            editable.dispatchEvent(new InputEvent('input', {
+                inputType: 'insertText',
+                data: text,
+                bubbles: true
+            }));
+        }
     }
 
     async function logActivity(tweetData) {
