@@ -12,8 +12,6 @@
     // State
     let isActive = false;
 
-    const STORAGE_KEY = 'x_replied_tweets';
-
     // ==================== INITIALIZATION ====================
 
     async function init() {
@@ -39,9 +37,6 @@
         try {
             const settings = await chrome.storage.local.get(['isActive', 'platforms']);
             isActive = settings.isActive || false;
-            if (settings.platforms?.x?.quickTone) {
-                // Initialize tone if needed?
-            }
             return { isActive };
         } catch (error) {
             console.error('[Echo X Driver] Error reading storage:', error);
@@ -61,18 +56,13 @@
     function startManualButtonObserver() {
         console.log('[Echo X Driver] Starting manual button observer...');
 
-        // Inject styles for conditional display
+        // Inject styles
         if (!document.querySelector('#echo-x-style')) {
             const style = document.createElement('style');
             style.id = 'echo-x-style';
+            // We only show controls in the toolbar now, so no need for complicated hide/show logic based on view
+            // But we keep the style block for any future needs or specific toolbar tweaks
             style.textContent = `
-                /* Hide tone selector by default (Feed view) */
-                .echo-x-tone-select {
-                    display: none !important;
-                }
-                
-                /* Show tone selector in Detail view OR inside Modal */
-                body.echo-x-detail-view .echo-x-tone-select,
                 .echo-x-controls-modal .echo-x-tone-select {
                     display: block !important;
                 }
@@ -81,28 +71,16 @@
         }
 
         const checkAndInjectButtons = () => {
-            // Update view state based on URL
-            if (window.location.pathname.includes('/status/')) {
-                document.body.classList.add('echo-x-detail-view');
-            } else {
-                document.body.classList.remove('echo-x-detail-view');
-            }
+            // We NO LONGER inject into feed tweets.
+            // We ONLY looking for Toolbars (Reply composition areas)
 
-            // 1. Find all tweets (Feed and Detail)
-            const tweets = document.querySelectorAll(window.X_SELECTORS?.tweet || 'article[data-testid="tweet"]');
-            tweets.forEach(tweet => {
-                if (tweet.querySelector('.echo-x-generate-btn')) return;
-                if (window.isXAd?.(tweet)) {
-                    // console.log('[Echo X Driver] Skipping ad tweet'); // Reduced log noise
-                    return;
-                }
-                injectManualGenerateButton(tweet);
-            });
-
-            // 2. Find Reply Modal Toolbars
+            // Find Reply Toolbars
             const toolbars = document.querySelectorAll('[data-testid="toolBar"]');
             toolbars.forEach(toolbar => {
+                // Check if we already injected
                 if (toolbar.querySelector('.echo-x-controls')) return;
+
+                // Inject controls into toolbar, marked as modal controls
                 injectToolbarControls(toolbar);
             });
         };
@@ -110,21 +88,21 @@
         // Check immediately
         setTimeout(checkAndInjectButtons, 2000);
 
-        // Observe for new tweets
+        // Observe for new tweets and modals
         const observer = new MutationObserver(() => {
             checkAndInjectButtons();
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // Also check periodically (X loads content dynamically)
+        // Also check periodically
         setInterval(checkAndInjectButtons, 3000);
     }
 
-    // New: Inject controls into the Modal Toolbar
     function injectToolbarControls(toolbar) {
+        // Create container
         const container = document.createElement('div');
-        container.className = 'echo-x-controls echo-x-controls-modal'; // Special class for modal CSS
+        container.className = 'echo-x-controls echo-x-controls-modal';
         container.style.cssText = `
             display: flex;
             align-items: center;
@@ -137,51 +115,24 @@
         container.appendChild(toneSelect);
         container.appendChild(button);
 
-        toolbar.appendChild(container);
+        toolbar.appendChild(container); // Append to end of toolbar
 
+        // Button Logic
         button.addEventListener('click', async (e) => {
             e.stopPropagation();
-            // Find modal context
-            const modal = toolbar.closest('[role="dialog"]') || toolbar.parentElement;
-            await handleManualGenerate(button, modal, toneSelect.value, true);
+            // We are inside a toolbar. 
+            // Context could be a Modal OR Inline Reply (Detail view)
+            const modal = toolbar.closest('[role="dialog"]');
+            const inlineContext = toolbar.closest('.DraftEditor-root')?.parentElement || toolbar.parentElement;
+
+            const contextStart = modal || inlineContext;
+
+            await handleManualGenerate(button, contextStart, toneSelect.value);
         });
-
-        // logger
-        // console.log('[Echo X Driver] Injected into Toolbar');
-    }
-
-    function injectManualGenerateButton(tweet) {
-        if (tweet.querySelector('.echo-x-generate-btn')) return;
-
-        const container = document.createElement('div');
-        container.className = 'echo-x-controls';
-        container.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto; /* Push to right */
-        `;
-
-        const { toneSelect, button } = createControls();
-
-        // Button Logic for Feed Tweet (modal NOT open)
-        button.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            await handleManualGenerate(button, tweet, toneSelect.value, false);
-        });
-
-        container.appendChild(toneSelect);
-        container.appendChild(button);
-
-        const actionsBar = tweet.querySelector('[role="group"]');
-        if (actionsBar) {
-            actionsBar.appendChild(container);
-        } else {
-            tweet.appendChild(container);
-        }
     }
 
     function createControls() {
+        // Create tone selector dropdown
         const toneSelect = document.createElement('select');
         toneSelect.className = 'echo-x-tone-select';
         toneSelect.style.cssText = `
@@ -196,7 +147,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             appearance: none;
             transition: all 0.2s;
-            /* Display handled by CSS classes */
+            display: block; /* Always visible in toolbar */
         `;
         toneSelect.innerHTML = `
             <option value="shitposter">🤪 Shitposter</option>
@@ -204,6 +155,7 @@
             <option value="builder">🛠️ Builder</option>
         `;
 
+        // Hover effect for tone selector
         toneSelect.addEventListener('mouseenter', () => {
             toneSelect.style.backgroundColor = 'rgba(29, 155, 240, 0.1)';
             toneSelect.style.color = '#1d9bf0';
@@ -213,14 +165,16 @@
             toneSelect.style.color = '#71767b';
         });
 
+        // Load saved tone
         chrome.storage.local.get('xQuickTone').then(data => {
             toneSelect.value = data.xQuickTone || 'shitposter';
         });
 
+        // Save tone on change
         toneSelect.addEventListener('change', async () => {
             const tone = toneSelect.value;
             await chrome.storage.local.set({ xQuickTone: tone });
-            // Also update platform settings
+
             const { platforms } = await chrome.storage.local.get('platforms');
             if (platforms && platforms.x) {
                 platforms.x.quickTone = tone;
@@ -228,6 +182,7 @@
             }
         });
 
+        // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-x-generate-btn';
         button.innerHTML = `
@@ -265,7 +220,7 @@
         return { toneSelect, button };
     }
 
-    async function handleManualGenerate(button, contextElement, tone, isInsideModal = false) {
+    async function handleManualGenerate(button, contextElement, tone) {
         if (button.disabled) return;
 
         try {
@@ -278,6 +233,7 @@
                 </svg>
             `;
 
+            // Inject spin animation if needed
             if (!document.querySelector('#echo-spin-style')) {
                 const style = document.createElement('style');
                 style.id = 'echo-spin-style';
@@ -285,40 +241,35 @@
                 document.head.appendChild(style);
             }
 
+            // FIND TWEET DATA
             let tweetData = null;
 
-            if (!isInsideModal) {
-                // CASE 1: Feed Tweet Click
-                // Extract data BEFORE clicking reply, because clicking reply might shift DOM or focus
-                tweetData = window.extractXTweetData?.(contextElement);
-
-                // Click Native Reply to Open Modal
-                const replyButton = contextElement.querySelector('div[data-testid="reply"]');
-                if (replyButton) {
-                    replyButton.click();
-                    // Wait for modal to appear and settle
-                    await sleep(1000);
-                } else {
-                    console.warn('[Echo X Driver] Could not find reply button, proceeding anyway');
-                }
-            } else {
-                // CASE 2: Inside Modal Click
-                // Try to find the tweet being replied to (usually visible in modal)
-                const modal = contextElement.closest('[role="dialog"]');
-                const tweetArticle = modal?.querySelector('article[data-testid="tweet"]');
+            // Check if we are in a Modal
+            if (contextElement && contextElement.getAttribute('role') === 'dialog') {
+                // In modal, the tweet being replied to is usually displayed above the input
+                // Look for 'article' inside the modal
+                const tweetArticle = contextElement.querySelector('article[data-testid="tweet"]');
                 if (tweetArticle) {
                     tweetData = window.extractXTweetData?.(tweetArticle);
                 }
             }
 
-            // Fallback Extraction
-            if (!tweetData || !tweetData.content || tweetData.content.length < 5) {
-                // If we are in modal, maybe the background page has the tweet?
-                // Or try to find any visible article
+            // If not found in modal (or not in modal), check for Main Article (Detail View Inline)
+            if (!tweetData) {
+                // If we are inline (not modal), we are likely replying to the main tweet on page
+                // or a specific tweet in the thread. 
+                // But usually inline reply at bottom corresponds to the main tweet above.
+                // We can find the main tweet by finding the article that is NOT a reply in the context chain?
+                // Or simply find 'article[data-testid="tweet"]' that has the main focus
+
+                // Heuristic: The first visible tweet on the page might be it, IF we are in detail view.
+                // But safer: look for the article that is PROBABLY the one we are replying to.
+                // In detail view, the main tweet has a different structure sometimes.
+
                 const articles = document.querySelectorAll('article[data-testid="tweet"]');
                 // The 'main' one usually has larger font or specific location
+                // Let's iterate and try to find one that looks like a main tweet or just use the first one?
                 if (articles.length > 0) {
-                    // Heuristic: use the first visible one
                     tweetData = window.extractXTweetData?.(articles[0]);
                 }
             }
@@ -327,6 +278,7 @@
 
             console.log('[Echo X Driver] Generating for:', tweetData.postId, 'Tone:', tone);
 
+            // Request AI comment generation
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: tweetData,
@@ -337,14 +289,18 @@
             if (response.error) throw new Error(response.error);
             if (!response.comment) throw new Error('No reply generated');
 
-            // Find the reply textarea (should be visible in modal now)
-            await insertReplyText(response.comment);
+            // Insert text into the active textarea (contextElement should contain it or be near it)
+            // But strict logic: find the textarea associated with THIS toolbar.
+            // The button is in the toolbar. The textarea is usually in the same container or parent.
+            // We can search globally for the focused textarea OR search relative to button.
+
+            await insertReplyText(response.comment, button);
 
             showNotification('✨ Reply generated!');
             button.innerHTML = originalHTML;
 
         } catch (error) {
-            console.error('[Echo X Driver] Error:', error);
+            console.error('[Echo X Driver] User generation error:', error);
             showNotification(`Error: ${error.message}`, 'error');
             button.innerHTML = originalHTML;
         } finally {
@@ -353,13 +309,28 @@
         }
     }
 
-    async function insertReplyText(text) {
-        // Wait for the reply textarea to appear
+    async function insertReplyText(text, buttonContext = null) {
+        // Find the appropriate textarea
         let textarea = null;
-        for (let i = 0; i < 30; i++) {
+
+        if (buttonContext) {
+            // Try to find textarea relative to the button (closest container)
+            // The toolbar is usually a sibling of the textarea wrapper or inside the same form
+            const wrapper = buttonContext.closest('.DraftEditor-root') || buttonContext.closest('[data-testid="tweetTextarea_0_label"]')?.parentElement || buttonContext.closest('.css-175oi2r.r-16y2uox.r-1wbh5a2');
+            if (wrapper) {
+                textarea = wrapper.querySelector('div[data-testid="tweetTextarea_0"]');
+            } else {
+                // Try going up further
+                const modal = buttonContext.closest('[role="dialog"]');
+                if (modal) {
+                    textarea = modal.querySelector('div[data-testid="tweetTextarea_0"]');
+                }
+            }
+        }
+
+        // Fallback or Global search if relative failed
+        if (!textarea) {
             textarea = document.querySelector('div[data-testid="tweetTextarea_0"]');
-            if (textarea) break;
-            await sleep(100);
         }
 
         if (!textarea) {
@@ -368,9 +339,8 @@
 
         // Focus the textarea
         textarea.click();
-        await sleep(200);
         textarea.focus();
-        await sleep(200);
+        await sleep(100);
 
         // Use clipboard paste method
         try {
