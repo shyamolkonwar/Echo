@@ -240,10 +240,12 @@
     async function handleManualGenerate(button, contextElement, tone) {
         if (button.disabled) return;
 
+        const originalHTML = button.innerHTML;
+
         try {
             button.disabled = true;
             button.style.cursor = 'wait';
-            const originalHTML = button.innerHTML;
+
             button.innerHTML = `
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;animation: spin 1s linear infinite;">
                     <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20"/>
