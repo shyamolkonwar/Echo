@@ -87,7 +87,7 @@ class XAutoPilotDriver {
         this.commentCount = 0;
         this.scrollCount = 0;
 
-        await chrome.storage.local.set({ isActive: true });
+        // isActive is already set by the popup, don't set it again
         this.showNotification('🤖 X Autopilot activated');
 
         // Start main loop
@@ -104,7 +104,7 @@ class XAutoPilotDriver {
         this.currentTweet = null;
         this.currentModal = null;
 
-        chrome.storage.local.set({ isActive: false });
+        // Don't set isActive false - let the popup manage this state
         this.showNotification('⏸️ X Autopilot stopped');
     }
 
