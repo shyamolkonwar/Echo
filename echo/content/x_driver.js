@@ -107,14 +107,11 @@
             return;
         }
 
-        // Find the GIF button's parent wrapper
-        const gifButton = scrollList.querySelector('[data-testid="gifSearchButton"]');
-        const gifWrapper = gifButton?.closest('[role="presentation"]');
+        // Find the GIF button's parent wrapper - OLD LOGIC REMOVED
+        // We now append to the end of the list per user request
 
-        if (!gifWrapper) {
-            console.log('[Echo X Driver] GIF button wrapper not found');
-            return;
-        }
+        // Ensure we haven't already injected into this specific list
+        if (scrollList.querySelector('.echo-x-controls')) return;
 
         // Create container matching native toolbar item structure
         const container = document.createElement('div');
@@ -131,8 +128,8 @@
         container.appendChild(toneSelect);
         container.appendChild(button);
 
-        // Insert AFTER the GIF button wrapper
-        gifWrapper.insertAdjacentElement('afterend', container);
+        // Append to the END of the scrollable list
+        scrollList.appendChild(container);
 
         // Button Logic
         button.addEventListener('click', async (e) => {
