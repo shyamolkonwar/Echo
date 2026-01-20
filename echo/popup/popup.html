@@ -48,10 +48,7 @@
                     </svg>
                 </button>
                 <button class="platform-icon" data-platform="x" title="X (Twitter)">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                        <path
-                            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
+                    <img src="../assets/images/twitter.png" alt="X" width="20" height="20" style="border-radius: 4px;">
                 </button>
 
             </div>
@@ -220,6 +217,9 @@
                     <button class="nav-item" data-section="reddit" title="Reddit">
                         <img src="../assets/images/reddit.png" alt="Reddit" class="nav-icon-img">
                     </button>
+                    <button class="nav-item" data-section="x" title="X (Twitter)">
+                        <img src="../assets/images/twitter.png" alt="X" class="nav-icon-img">
+                    </button>
                 </nav>
 
                 <!-- Right Content Area (Canvas) -->
@@ -334,6 +334,27 @@
                                 <span class="checkbox-custom"></span>
                                 <span>Ignore 'Hiring' posts</span>
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- X (Twitter) Section -->
+                    <div class="settings-section" data-section="x">
+                        <div class="section-header">
+                            <h3>X (Twitter) Persona</h3>
+                            <p class="section-desc">Define how you sound on X</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="x-voice">My Voice</label>
+                            <div class="voice-editor-wrapper">
+                                <textarea id="x-voice" class="voice-editor" rows="5"
+                                    placeholder="I'm a chaotic shitposter who never capitalizes. Keep it under 100 chars..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="x-blacklist">Blacklisted Words</label>
+                            <p class="helper-text">Skip tweets containing these words (comma-separated)</p>
+                            <input type="text" id="x-blacklist" class="filled-input"
+                                placeholder="politics, crypto, nft">
                         </div>
                     </div>
 

@@ -63,6 +63,9 @@ class EchoPopup {
         this.elements.subredditBlacklist = document.getElementById('subreddit-blacklist');
         this.elements.redditIgnoreHiring = document.getElementById('reddit-ignore-hiring');
 
+        this.elements.xVoice = document.getElementById('x-voice');
+        this.elements.xBlacklist = document.getElementById('x-blacklist');
+
         // System Configs
         this.elements.delayTimer = document.getElementById('delay-timer');
         this.elements.scrollSpeed = document.getElementById('scroll-speed');
@@ -273,9 +276,16 @@ class EchoPopup {
         const webAutopilot = document.getElementById('autopilot-toggle');
         if (webAutopilot && platforms.linkedin) webAutopilot.checked = platforms.linkedin.autopilot || false;
 
-        // 5. Load Tone Settings into Radio Buttons
+        // 5. X Configs
+        if (platforms.x) {
+            if (this.elements.xVoice) this.elements.xVoice.value = platforms.x.voice || '';
+            if (this.elements.xBlacklist) this.elements.xBlacklist.value = (platforms.x.blacklist || []).join(', ');
+        }
+
+        // 6. Load Tone Settings into Radio Buttons
         const linkedinTone = platforms.linkedin?.quickTone || 'professional';
-        const redditTone = platforms.reddit?.quickTone || 'witty';
+        const redditTone = platforms.reddit?.quickTone || 'sarcastic';
+        const xTone = platforms.x?.quickTone || 'shitposter';
 
         // Set LinkedIn tone radio
         document.querySelectorAll('input[name="quick-tone"]').forEach(radio => {
@@ -287,8 +297,13 @@ class EchoPopup {
             radio.checked = radio.value === redditTone;
         });
 
+        // Set X tone radio
+        document.querySelectorAll('input[name="x-tone"]').forEach(radio => {
+            radio.checked = radio.value === xTone;
+        });
+
         // Also save to legacy quickTone key for content script compatibility
-        await chrome.storage.local.set({ quickTone: linkedinTone, redditQuickTone: redditTone });
+        await chrome.storage.local.set({ quickTone: linkedinTone, redditQuickTone: redditTone, xQuickTone: xTone });
     }
 
     async saveSettings() {
@@ -316,6 +331,13 @@ class EchoPopup {
             subreddits: this.elements.subredditFilter.value.split(',').map(s => s.trim()).filter(Boolean),
             blacklist: this.elements.subredditBlacklist.value.split(',').map(s => s.trim()).filter(Boolean),
             ignoreHiring: this.elements.redditIgnoreHiring.checked
+        };
+
+        // Update X
+        updatedPlatforms.x = {
+            ...updatedPlatforms.x,
+            voice: this.elements.xVoice?.value?.trim() || '',
+            blacklist: this.elements.xBlacklist?.value?.split(',').map(s => s.trim()).filter(Boolean) || []
         };
 
         await chrome.storage.local.set({
