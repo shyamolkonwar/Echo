@@ -337,8 +337,7 @@ function buildXPrompt(postData, quickTone, settings) {
     const toneDescriptions = {
         'shitposter': 'Chaotic shitposter energy. Lowercase, memes, very short. Examples: "real", "big if true", "this", "lmao what". Maximum 50 characters. Be unhinged but not offensive.',
         'contrarian': 'Contrarian devil\'s advocate. Disagree or ask a challenging question. Push back on the premise. Be provocative but intelligent.',
-        'builder': 'Supportive builder/tech community vibe. Technical but encouraging. Share your experience building. Use "shipped", "built", "launched" language.',
-        'threadboi': 'Thread-boi style. Start with phrases like "This is a masterclass in..." or "Everyone is missing the point..." Be slightly pretentious but insightful.'
+        'builder': 'Supportive builder/tech community vibe. Technical but encouraging. Share your experience building. Use "shipped", "built", "launched" language.'
     };
 
     const activeTone = toneDescriptions[quickTone] || toneDescriptions['shitposter'];

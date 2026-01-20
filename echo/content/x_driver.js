@@ -129,7 +129,6 @@
             <option value="shitposter">🤪 Shitposter</option>
             <option value="contrarian">🤔 Contrarian</option>
             <option value="builder">🛠️ Builder</option>
-            <option value="threadboi">🧵 Thread-Boi</option>
         `;
 
         // Load saved tone
