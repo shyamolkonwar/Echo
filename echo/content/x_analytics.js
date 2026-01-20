@@ -518,20 +518,27 @@
     }
 
     async function fetchUserId(handle) {
-        // Method A: React Fiber (Fastest, no API)
-        const reactId = extractReactUserId();
-        if (reactId && reactId.length > 0) {
-            console.log('[Echo X Analytics] Found ID via React:', reactId);
-            return reactId;
+        // Method A: DOM / Local Data (Fastest, no API)
+        const localId = extractLocalUserId();
+        if (localId && localId.length > 0) {
+            console.log('[Echo X Analytics] Found ID via Local/DOM:', localId);
+            return localId;
         }
 
         // Method B: API (Fallback)
-        console.log('[Echo X Analytics] React ID failed, trying API...');
+        console.log('[Echo X Analytics] Local extraction failed, trying API...');
         const queryId = STATE.queryIds.UserByScreenName;
         if (!queryId) throw new Error('UserByScreenName Query ID not found');
 
         const variables = { "screen_name": handle, "withSafetyModeUserFields": true };
-        const features = { "hidden_profile_likes_enabled": true, "hidden_profile_subscriptions_enabled": true, "responsive_web_graphql_exclude_directive_enabled": true, "verified_phone_label_enabled": false, "subscriptions_verification_info_is_identity_verified_enabled": true, "subscriptions_verification_info_verified_since_enabled": true, "highlights_tweets_tab_ui_enabled": true, "responsive_web_twitter_article_notes_tab_enabled": true, "creator_subscriptions_tweet_preview_api_enabled": true, "responsive_web_graphql_skip_user_profile_image_extensions_enabled": false, "responsive_web_graphql_timeline_navigation_enabled": true };
+        const features = {
+            "responsive_web_graphql_exclude_directive_enabled": true,
+            "verified_phone_label_enabled": false,
+            "responsive_web_graphql_timeline_navigation_enabled": true,
+            "responsive_web_graphql_skip_user_profile_image_extensions_enabled": false,
+            "hidden_profile_likes_enabled": false,
+            "hidden_profile_subscriptions_enabled": false
+        };
 
         const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${encodeURIComponent(JSON.stringify(features))}`;
 
@@ -539,39 +546,48 @@
         return data.data.user.result.rest_id;
     }
 
-    function extractReactUserId() {
+    function extractLocalUserId() {
         try {
-            // Find a reliable element
-            const el = document.querySelector('[data-testid="UserProfileHeader_Items"]') ||
-                document.querySelector('[data-testid="UserName"]');
-
-            if (!el) return null;
-
-            // Get Fiber
-            const key = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
-            if (!key) return null;
-
-            let fiber = el[key];
-
-            // Traverse up looking for "user" prop with "id_str" or "rest_id"
-            // Or "screen_name" matching current handle
-            let attempts = 0;
-            while (fiber && attempts < 20) {
-                const props = fiber.memoizedProps;
-                if (props) {
-                    // Check direct user object
-                    const user = props.user || props.currentUser || (props.data && props.data.user);
-                    if (user && (user.rest_id || user.id_str) && user.screen_name && user.screen_name.toLowerCase() === STATE.currentHandle.toLowerCase()) {
-                        return user.rest_id || user.id_str;
+            // Strategy 1: JSON-LD (Schema.org)
+            const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+            for (const script of scripts) {
+                try {
+                    const json = JSON.parse(script.textContent);
+                    if (json['@type'] === 'Person' || json['@type'] === 'ProfilePage') {
+                        const person = json['@type'] === 'Person' ? json : json.mainEntity;
+                        if (person && person.identifier) return person.identifier.toString();
+                        if (person && person.additionalProperty) {
+                            const idProp = person.additionalProperty.find(p => p.name === 'user_id');
+                            if (idProp) return idProp.value.toString();
+                        }
                     }
-                }
-                fiber = fiber.return;
-                attempts++;
+                } catch (e) { }
             }
-        } catch (e) {
-            console.warn('React extraction error:', e);
-        }
-        return null; // Fail safe
+
+            // Strategy 2: React Fiber
+            const targets = ['[data-testid="UserProfileHeader_Items"]', '[data-testid="UserName"]', '[data-testid="primaryColumn"]', '[role="main"]'];
+            for (const sel of targets) {
+                const el = document.querySelector(sel);
+                if (!el) continue;
+                const key = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
+                if (!key) continue;
+                let fiber = el[key];
+                let attempts = 0;
+                while (fiber && attempts < 25) {
+                    const props = fiber.memoizedProps;
+                    if (props) {
+                        const user = props.user || props.currentUser || (props.data && props.data.user);
+                        if (user && (user.rest_id || user.id_str)) {
+                            if (user.screen_name && user.screen_name.toLowerCase() === STATE.currentHandle.toLowerCase()) return user.rest_id || user.id_str;
+                            if (sel === '[data-testid="UserProfileHeader_Items"]') return user.rest_id || user.id_str;
+                        }
+                    }
+                    fiber = fiber.return;
+                    attempts++;
+                }
+            }
+        } catch (e) { console.warn('Local extraction error:', e); }
+        return null;
     }
 
     async function fetchUserTweets(userId) {
