@@ -1,12 +1,12 @@
 # Echo - Multi-Platform Ghost Writer 🤖
 
-**Your voice, echoed.** An AI-powered comment assistant for LinkedIn & Reddit with vision support, autonomous verification, and human-like behavior.
+**Your voice, echoed.** An AI-powered comment assistant for LinkedIn, Reddit & X (Twitter) with vision support, autonomous verification, analytics, and human-like behavior.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
-- 🌐 **Multi-Platform Support** - Works seamlessly on both LinkedIn and Reddit
+- 🌐 **Multi-Platform Support** - Works seamlessly on LinkedIn, Reddit, and X (Twitter)
 - 🧠 **Smart AI Comments** - Generates contextual, non-bot-like comments using GPT-4o, Gemini 1.5 Flash, or DeepSeek
 - 👁️ **Vision Support** - Analyzes images in posts to reference specific visual details
 - 🎯 **Manual Generate Button** - On-demand AI comment generation with a single click
@@ -26,6 +26,14 @@
 - ⏱️ **Smart Rate Limiting** - 10-15 min delays to avoid Reddit shadowbans
 - 🚫 **Anti-Emoji** - Respects Reddit's no-emoji culture (except 🗿 🚀 in specific contexts)
 
+### X (Twitter) Features (New v2.0!)
+- 📊 **Profile Analytics Sidebar** - "⚡ Analyze" any profile to see top performing tweets
+- 📈 **Viral Scoring Algorithm** - Automatically identifies high-engagement content (Likes + 2xRTs + 3xReplies)
+- 👻 **Ghost Reply** - Draft context-aware replies directly from the analytics sidebar
+- 🎭 **X-Specific Tones** - "Shitposter", "Contrarian", "Builder", "Thread-Boi"
+- 🔍 **React-Fiber Extraction** - Robust, API-free user identification method
+- 🛡️ **Smart Rate Limiting** - Backoff strategies to protect your account
+
 ## Installation
 
 ### 1. Clone the Repository
@@ -38,7 +46,7 @@ cd Echo
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in top-right corner)
 3. Click **Load unpacked**
-4. Select the `extension` folder from the cloned repository
+4. Select the `echo` folder from the cloned repository
 
 ### 3. Configure API Key
 1. Click the Echo extension icon in your Chrome toolbar
@@ -92,6 +100,12 @@ In the popup, enter your persona in the "My Voice" field. Examples:
 7. Comments will be formatted in Markdown and adapt to each subreddit's culture
 
 **Important:** Ensure you have 50+ karma before using Reddit automation to avoid shadowbans.
+
+### X (Twitter) Mode
+1. **Analytics**: Navigate to any user profile and click the **"⚡ Analyze"** button in the header.
+2. **Viral Sidebar**: Use the sidebar to filter "Recent Viral" or "All Time" tweets.
+3. **Ghost Reply**: Click "Draft Reply" on any sidebar tweet to jump to it and auto-draft a response.
+4. **Manual Reply**: Click the "Echo" icon in the reply toolbar of any tweet.
 
 ## Project Structure
 
