@@ -11,6 +11,7 @@
 
     // State
     let isActive = false;
+    let autoPilotDriver = null;
 
     // ==================== INITIALIZATION ====================
 
@@ -19,6 +20,13 @@
 
         await refreshStateFromStorage();
 
+        // Initialize autopilot driver
+        if (window.XAutoPilotDriver) {
+            autoPilotDriver = new window.XAutoPilotDriver();
+            await autoPilotDriver.init();
+            console.log('[Echo X Driver] Autopilot driver initialized');
+        }
+
         // Start manual button observer
         startManualButtonObserver();
 
@@ -26,11 +34,28 @@
         chrome.runtime.onMessage.addListener(handleMessage);
 
         // Listen for storage changes
-        chrome.storage.onChanged.addListener((changes, namespace) => {
+        chrome.storage.onChanged.addListener(async (changes, namespace) => {
             if (namespace === 'local' && changes.isActive !== undefined) {
                 isActive = changes.isActive.newValue;
+
+                // Control autopilot based on isActive
+                if (autoPilotDriver) {
+                    if (isActive) {
+                        console.log('[Echo X Driver] Starting autopilot...');
+                        await autoPilotDriver.start();
+                    } else {
+                        console.log('[Echo X Driver] Stopping autopilot...');
+                        autoPilotDriver.stop();
+                    }
+                }
             }
         });
+
+        // If already active, start autopilot
+        if (isActive && autoPilotDriver) {
+            console.log('[Echo X Driver] Starting autopilot (already active)...');
+            await autoPilotDriver.start();
+        }
     }
 
     async function refreshStateFromStorage() {
