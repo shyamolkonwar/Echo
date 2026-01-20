@@ -437,28 +437,48 @@
     }
 
     async function startScraping() {
-        if (!STATE.session) await refreshSession();
-        if (!STATE.session) {
-            throw new Error('Missing session. Please browse your X home feed first.');
+        try {
+            if (!STATE.session) await refreshSession();
+            if (!STATE.session) {
+                throw new Error('Missing session. Please browse your X home feed first.');
+            }
+
+            // 1. Get Query IDs
+            if (!STATE.queryIds.UserTweets) {
+                try {
+                    await extractQueryIds();
+                } catch (e) {
+                    throw new Error('Failed to extract Query IDs: ' + e.message);
+                }
+            }
+
+            // 2. Get User ID
+            let userId = null;
+            try {
+                userId = await fetchUserId(STATE.currentHandle);
+            } catch (e) {
+                throw new Error('Failed to get User ID: ' + e.message);
+            }
+            STATE.currentUserId = userId;
+
+            // 3. Fetch Tweets
+            let rawTweets = [];
+            try {
+                rawTweets = await fetchUserTweets(userId);
+            } catch (e) {
+                if (e.message.includes('Rate limit')) throw e;
+                throw new Error('Failed to fetch tweets: ' + e.message);
+            }
+
+            // 4. Process & Score
+            STATE.tweets = processTweets(rawTweets);
+
+            // 5. Render
+            renderTweets();
+        } catch (e) {
+            console.error('[Echo X Analytics] Scraping Failed:', e);
+            throw e; // Re-throw for UI to catch
         }
-
-        // 1. Get Query IDs if needed
-        if (!STATE.queryIds.UserTweets) {
-            await extractQueryIds();
-        }
-
-        // 2. Get User ID
-        const userId = await fetchUserId(STATE.currentHandle);
-        STATE.currentUserId = userId;
-
-        // 3. Fetch Tweets
-        const rawTweets = await fetchUserTweets(userId);
-
-        // 4. Process & Score
-        STATE.tweets = processTweets(rawTweets);
-
-        // 5. Render
-        renderTweets();
     }
 
     // ==================== API INTERCEPTOR ====================
@@ -498,9 +518,17 @@
     }
 
     async function fetchUserId(handle) {
+        // Method A: React Fiber (Fastest, no API)
+        const reactId = extractReactUserId();
+        if (reactId && reactId.length > 0) {
+            console.log('[Echo X Analytics] Found ID via React:', reactId);
+            return reactId;
+        }
+
+        // Method B: API (Fallback)
+        console.log('[Echo X Analytics] React ID failed, trying API...');
         const queryId = STATE.queryIds.UserByScreenName;
-        // If we failed to get ID, we might have to hardcode a fallback or fail
-        // Fallback Ids often change.
+        if (!queryId) throw new Error('UserByScreenName Query ID not found');
 
         const variables = { "screen_name": handle, "withSafetyModeUserFields": true };
         const features = { "hidden_profile_likes_enabled": true, "hidden_profile_subscriptions_enabled": true, "responsive_web_graphql_exclude_directive_enabled": true, "verified_phone_label_enabled": false, "subscriptions_verification_info_is_identity_verified_enabled": true, "subscriptions_verification_info_verified_since_enabled": true, "highlights_tweets_tab_ui_enabled": true, "responsive_web_twitter_article_notes_tab_enabled": true, "creator_subscriptions_tweet_preview_api_enabled": true, "responsive_web_graphql_skip_user_profile_image_extensions_enabled": false, "responsive_web_graphql_timeline_navigation_enabled": true };
@@ -509,6 +537,41 @@
 
         const data = await makeAuthorizedRequest(url);
         return data.data.user.result.rest_id;
+    }
+
+    function extractReactUserId() {
+        try {
+            // Find a reliable element
+            const el = document.querySelector('[data-testid="UserProfileHeader_Items"]') ||
+                document.querySelector('[data-testid="UserName"]');
+
+            if (!el) return null;
+
+            // Get Fiber
+            const key = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
+            if (!key) return null;
+
+            let fiber = el[key];
+
+            // Traverse up looking for "user" prop with "id_str" or "rest_id"
+            // Or "screen_name" matching current handle
+            let attempts = 0;
+            while (fiber && attempts < 20) {
+                const props = fiber.memoizedProps;
+                if (props) {
+                    // Check direct user object
+                    const user = props.user || props.currentUser || (props.data && props.data.user);
+                    if (user && (user.rest_id || user.id_str) && user.screen_name && user.screen_name.toLowerCase() === STATE.currentHandle.toLowerCase()) {
+                        return user.rest_id || user.id_str;
+                    }
+                }
+                fiber = fiber.return;
+                attempts++;
+            }
+        } catch (e) {
+            console.warn('React extraction error:', e);
+        }
+        return null; // Fail safe
     }
 
     async function fetchUserTweets(userId) {
