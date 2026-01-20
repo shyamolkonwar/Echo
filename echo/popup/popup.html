@@ -129,65 +129,66 @@
                         </label>
                     </div>
                 </div>
+            </div> <!-- End Reddit Context Card -->
 
-                <!-- X Context Card -->
-                <div class="context-card" data-platform="x" style="display: none;">
-                    <div class="context-header">
-                        <span class="context-label">Active: X (Twitter)</span>
+            <!-- X Context Card -->
+            <div class="context-card" data-platform="x" style="display: none;">
+                <div class="context-header">
+                    <span class="context-label">Active: X (Twitter)</span>
+                </div>
+
+                <div class="status-card">
+                    <div class="status-indicator" id="x-status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">PAUSED</span>
                     </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="x-master-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
 
-                    <div class="status-card">
-                        <div class="status-indicator" id="x-status-indicator">
-                            <span class="status-dot"></span>
-                            <span class="status-text">PAUSED</span>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" class="x-master-toggle">
-                            <span class="toggle-slider"></span>
+                <div class="tone-selector">
+                    <span class="section-label">Current Tone</span>
+                    <div class="tone-options">
+                        <label class="tone-option">
+                            <input type="radio" name="x-tone" value="shitposter" checked>
+                            <span class="tone-label">🤪 Shitposter</span>
+                        </label>
+                        <label class="tone-option">
+                            <input type="radio" name="x-tone" value="contrarian">
+                            <span class="tone-label">🤔 Contrarian</span>
+                        </label>
+                        <label class="tone-option">
+                            <input type="radio" name="x-tone" value="builder">
+                            <span class="tone-label">🛠️ Builder</span>
+                        </label>
+                        <label class="tone-option">
+                            <input type="radio" name="x-tone" value="threadboi">
+                            <span class="tone-label">🧵 Thread-Boi</span>
                         </label>
                     </div>
+                </div>
+            </div>
 
-                    <div class="tone-selector">
-                        <span class="section-label">Current Tone</span>
-                        <div class="tone-options">
-                            <label class="tone-option">
-                                <input type="radio" name="x-tone" value="shitposter" checked>
-                                <span class="tone-label">🤪 Shitposter</span>
-                            </label>
-                            <label class="tone-option">
-                                <input type="radio" name="x-tone" value="contrarian">
-                                <span class="tone-label">🤔 Contrarian</span>
-                            </label>
-                            <label class="tone-option">
-                                <input type="radio" name="x-tone" value="builder">
-                                <span class="tone-label">🛠️ Builder</span>
-                            </label>
-                            <label class="tone-option">
-                                <input type="radio" name="x-tone" value="threadboi">
-                                <span class="tone-label">🧵 Thread-Boi</span>
-                            </label>
-                        </div>
+            <!-- Footer (Always Visible) -->
+            <div class="popup-footer">
+                <!-- Dashboard Button -->
+                <button id="open-dashboard" class="dashboard-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 20V10M12 20V4M6 20v-6" />
+                    </svg>
+                    Open Dashboard
+                </button>
+
+                <!-- Activity Log -->
+                <div class="activity-section">
+                    <span class="section-label">Recent Activity</span>
+                    <div class="activity-log" id="activity-log">
+                        <div class="activity-empty">No activity yet. Enable Echo and browse.</div>
                     </div>
                 </div>
-
-                <!-- Footer (Always Visible) -->
-                <div class="popup-footer">
-                    <!-- Dashboard Button -->
-                    <button id="open-dashboard" class="dashboard-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 20V10M12 20V4M6 20v-6" />
-                        </svg>
-                        Open Dashboard
-                    </button>
-
-                    <!-- Activity Log -->
-                    <div class="activity-section">
-                        <span class="section-label">Recent Activity</span>
-                        <div class="activity-log" id="activity-log">
-                            <div class="activity-empty">No activity yet. Enable Echo and browse.</div>
-                        </div>
-                    </div>
-                </div>
+            </div>
         </main>
 
         <!-- Settings View (Identity Control Center) -->
