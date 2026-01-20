@@ -84,7 +84,6 @@
                 "lib/html2canvas.min.js",
                 "content/platform_router.js",
                 "content/x_logic.js",
-                "content/x_autopilot_driver.js",
                 "content/x_driver.js",
                 "content/driver.js",
                 "content/content.js"

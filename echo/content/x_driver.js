@@ -21,21 +21,8 @@
         await refreshStateFromStorage();
         console.log(`[Echo X Driver] Initial isActive: ${isActive}`);
 
-        // Initialize autopilot driver (wait for script to load)
-        let retries = 0;
-        while (retries < 10 && !window.XAutoPilotDriver) {
-            console.log(`[Echo X Driver] Waiting for XAutoPilotDriver... (${retries + 1}/10)`);
-            await new Promise(resolve => setTimeout(resolve, 100));
-            retries++;
-        }
-
-        if (window.XAutoPilotDriver) {
-            autoPilotDriver = new window.XAutoPilotDriver();
-            await autoPilotDriver.init();
-            console.log('[Echo X Driver] Autopilot driver initialized');
-        } else {
-            console.error('[Echo X Driver] XAutoPilotDriver class not found!');
-        }
+        // Autopilot removed as per user request
+        // Manual button mode only
 
         // Start manual button observer
         startManualButtonObserver();
@@ -51,26 +38,11 @@
                 isActive = changes.isActive.newValue;
                 console.log(`[Echo X Driver] isActive: ${oldValue} → ${isActive}`);
 
-                // Control autopilot based on isActive
-                if (autoPilotDriver) {
-                    if (isActive) {
-                        console.log('[Echo X Driver] 🚀 Starting autopilot...');
-                        await autoPilotDriver.start();
-                    } else {
-                        console.log('[Echo X Driver] ⏹️ Stopping autopilot...');
-                        autoPilotDriver.stop();
-                    }
-                } else {
-                    console.error('[Echo X Driver] ⚠️ Autopilot driver not available!');
-                }
+                // Autopilot control removed
             }
         });
 
-        // If already active, start autopilot
-        if (isActive && autoPilotDriver) {
-            console.log('[Echo X Driver] Starting autopilot (already active)...');
-            await autoPilotDriver.start();
-        }
+        // Auto-start removed
     }
 
     async function refreshStateFromStorage() {
@@ -355,6 +327,9 @@
 
             await insertReplyText(response.comment, button);
 
+            // Log activity
+            await logActivity(tweetData);
+
             showNotification('✨ Reply generated!');
             button.innerHTML = originalHTML;
 
@@ -445,6 +420,29 @@
             data: text,
             bubbles: true
         }));
+    }
+
+    async function logActivity(tweetData) {
+        if (!tweetData) return;
+
+        const authorName = tweetData.authorName || tweetData.handle || 'Someone';
+
+        // Get current activity log
+        const { activityLog } = await chrome.storage.local.get('activityLog');
+        const log = activityLog || [];
+
+        // Add new entry
+        log.unshift({
+            text: `Replied to <strong>${authorName}</strong> on X`,
+            timestamp: Date.now()
+        });
+
+        // Keep only last 10 items
+        try {
+            await chrome.storage.local.set({ activityLog: log.slice(0, 10) });
+        } catch (e) {
+            console.error('[Echo X Driver] Failed to save activity log:', e);
+        }
     }
 
     // ==================== HELPERS ====================
