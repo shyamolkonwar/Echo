@@ -187,6 +187,8 @@ class EchoPopup {
             if (tab?.url) {
                 if (tab.url.includes('reddit.com')) {
                     await this.switchPlatform('reddit');
+                } else if (tab.url.includes('x.com') || tab.url.includes('twitter.com')) {
+                    await this.switchPlatform('x');
                 } else {
                     await this.switchPlatform('linkedin');
                 }
