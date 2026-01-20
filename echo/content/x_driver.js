@@ -39,6 +39,9 @@
         try {
             const settings = await chrome.storage.local.get(['isActive', 'platforms']);
             isActive = settings.isActive || false;
+            if (settings.platforms?.x?.quickTone) {
+                // Initialize tone if needed?
+            }
             return { isActive };
         } catch (error) {
             console.error('[Echo X Driver] Error reading storage:', error);
@@ -68,8 +71,9 @@
                     display: none !important;
                 }
                 
-                /* Show tone selector in Detail view */
-                body.echo-x-detail-view .echo-x-tone-select {
+                /* Show tone selector in Detail view OR inside Modal */
+                body.echo-x-detail-view .echo-x-tone-select,
+                .echo-x-controls-modal .echo-x-tone-select {
                     display: block !important;
                 }
             `;
@@ -84,20 +88,22 @@
                 document.body.classList.remove('echo-x-detail-view');
             }
 
-            // Find all tweets on the page
+            // 1. Find all tweets (Feed and Detail)
             const tweets = document.querySelectorAll(window.X_SELECTORS?.tweet || 'article[data-testid="tweet"]');
-
             tweets.forEach(tweet => {
-                // Skip if button already exists
                 if (tweet.querySelector('.echo-x-generate-btn')) return;
-
-                // Skip ads
                 if (window.isXAd?.(tweet)) {
-                    console.log('[Echo X Driver] Skipping ad tweet');
+                    // console.log('[Echo X Driver] Skipping ad tweet'); // Reduced log noise
                     return;
                 }
-
                 injectManualGenerateButton(tweet);
+            });
+
+            // 2. Find Reply Modal Toolbars
+            const toolbars = document.querySelectorAll('[data-testid="toolBar"]');
+            toolbars.forEach(toolbar => {
+                if (toolbar.querySelector('.echo-x-controls')) return;
+                injectToolbarControls(toolbar);
             });
         };
 
@@ -115,10 +121,38 @@
         setInterval(checkAndInjectButtons, 3000);
     }
 
+    // New: Inject controls into the Modal Toolbar
+    function injectToolbarControls(toolbar) {
+        const container = document.createElement('div');
+        container.className = 'echo-x-controls echo-x-controls-modal'; // Special class for modal CSS
+        container.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 8px;
+        `;
+
+        const { toneSelect, button } = createControls();
+
+        container.appendChild(toneSelect);
+        container.appendChild(button);
+
+        toolbar.appendChild(container);
+
+        button.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            // Find modal context
+            const modal = toolbar.closest('[role="dialog"]') || toolbar.parentElement;
+            await handleManualGenerate(button, modal, toneSelect.value, true);
+        });
+
+        // logger
+        // console.log('[Echo X Driver] Injected into Toolbar');
+    }
+
     function injectManualGenerateButton(tweet) {
         if (tweet.querySelector('.echo-x-generate-btn')) return;
 
-        // Create container for tone selector and button
         const container = document.createElement('div');
         container.className = 'echo-x-controls';
         container.style.cssText = `
@@ -128,7 +162,26 @@
             margin-left: auto; /* Push to right */
         `;
 
-        // Create tone selector dropdown
+        const { toneSelect, button } = createControls();
+
+        // Button Logic for Feed Tweet (modal NOT open)
+        button.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await handleManualGenerate(button, tweet, toneSelect.value, false);
+        });
+
+        container.appendChild(toneSelect);
+        container.appendChild(button);
+
+        const actionsBar = tweet.querySelector('[role="group"]');
+        if (actionsBar) {
+            actionsBar.appendChild(container);
+        } else {
+            tweet.appendChild(container);
+        }
+    }
+
+    function createControls() {
         const toneSelect = document.createElement('select');
         toneSelect.className = 'echo-x-tone-select';
         toneSelect.style.cssText = `
@@ -143,6 +196,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             appearance: none;
             transition: all 0.2s;
+            /* Display handled by CSS classes */
         `;
         toneSelect.innerHTML = `
             <option value="shitposter">🤪 Shitposter</option>
@@ -150,7 +204,6 @@
             <option value="builder">🛠️ Builder</option>
         `;
 
-        // Hover effect for tone selector
         toneSelect.addEventListener('mouseenter', () => {
             toneSelect.style.backgroundColor = 'rgba(29, 155, 240, 0.1)';
             toneSelect.style.color = '#1d9bf0';
@@ -160,16 +213,14 @@
             toneSelect.style.color = '#71767b';
         });
 
-        // Load saved tone
         chrome.storage.local.get('xQuickTone').then(data => {
             toneSelect.value = data.xQuickTone || 'shitposter';
         });
 
-        // Save tone on change
         toneSelect.addEventListener('change', async () => {
             const tone = toneSelect.value;
             await chrome.storage.local.set({ xQuickTone: tone });
-
+            // Also update platform settings
             const { platforms } = await chrome.storage.local.get('platforms');
             if (platforms && platforms.x) {
                 platforms.x.quickTone = tone;
@@ -177,11 +228,8 @@
             }
         });
 
-        // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-x-generate-btn';
-        // Icon only for compactness in feed? Or keep text? User liked the button.
-        // Let's keep it but make it blend better with actions bar or stand out as "the AI action"
         button.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
@@ -214,33 +262,14 @@
             button.style.color = '#71767b';
         });
 
-        button.addEventListener('click', async (e) => {
-            e.stopPropagation(); // Prevent tweet click
-            await handleManualGenerate(button, tweet, toneSelect.value);
-        });
-
-        container.appendChild(toneSelect);
-        container.appendChild(button);
-
-        // Find a good place to insert - INTO the actions bar
-        const actionsBar = tweet.querySelector('[role="group"]');
-        if (actionsBar) {
-            // Check if we can append directly
-            actionsBar.appendChild(container);
-        } else {
-            // Fallback: append to tweet
-            tweet.appendChild(container);
-        }
-
-        console.log('[Echo X Driver] Generate button injected');
+        return { toneSelect, button };
     }
 
-    async function handleManualGenerate(button, tweet, tone) {
+    async function handleManualGenerate(button, contextElement, tone, isInsideModal = false) {
         if (button.disabled) return;
 
         try {
             button.disabled = true;
-            button.style.opacity = '0.7';
             button.style.cursor = 'wait';
             const originalHTML = button.innerHTML;
             button.innerHTML = `
@@ -249,7 +278,6 @@
                 </svg>
             `;
 
-            // Inject spin animation if needed
             if (!document.querySelector('#echo-spin-style')) {
                 const style = document.createElement('style');
                 style.id = 'echo-spin-style';
@@ -257,15 +285,48 @@
                 document.head.appendChild(style);
             }
 
-            // Extract tweet data
-            const tweetData = window.extractXTweetData?.(tweet);
-            if (!tweetData || !tweetData.content || tweetData.content.length < 5) {
-                throw new Error('Could not extract tweet content');
+            let tweetData = null;
+
+            if (!isInsideModal) {
+                // CASE 1: Feed Tweet Click
+                // Extract data BEFORE clicking reply, because clicking reply might shift DOM or focus
+                tweetData = window.extractXTweetData?.(contextElement);
+
+                // Click Native Reply to Open Modal
+                const replyButton = contextElement.querySelector('div[data-testid="reply"]');
+                if (replyButton) {
+                    replyButton.click();
+                    // Wait for modal to appear and settle
+                    await sleep(1000);
+                } else {
+                    console.warn('[Echo X Driver] Could not find reply button, proceeding anyway');
+                }
+            } else {
+                // CASE 2: Inside Modal Click
+                // Try to find the tweet being replied to (usually visible in modal)
+                const modal = contextElement.closest('[role="dialog"]');
+                const tweetArticle = modal?.querySelector('article[data-testid="tweet"]');
+                if (tweetArticle) {
+                    tweetData = window.extractXTweetData?.(tweetArticle);
+                }
             }
 
-            console.log('[Echo X Driver] Manual generate for tweet:', tweetData.postId, 'with tone:', tone);
+            // Fallback Extraction
+            if (!tweetData || !tweetData.content || tweetData.content.length < 5) {
+                // If we are in modal, maybe the background page has the tweet?
+                // Or try to find any visible article
+                const articles = document.querySelectorAll('article[data-testid="tweet"]');
+                // The 'main' one usually has larger font or specific location
+                if (articles.length > 0) {
+                    // Heuristic: use the first visible one
+                    tweetData = window.extractXTweetData?.(articles[0]);
+                }
+            }
 
-            // Request AI comment generation
+            if (!tweetData) throw new Error('Could not extract tweet content');
+
+            console.log('[Echo X Driver] Generating for:', tweetData.postId, 'Tone:', tone);
+
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: tweetData,
@@ -276,33 +337,18 @@
             if (response.error) throw new Error(response.error);
             if (!response.comment) throw new Error('No reply generated');
 
-            console.log('[Echo X Driver] Generated reply:', response.comment.substring(0, 50) + '...');
-
-            // Click the reply button to open reply modal
-            const replyButton = tweet.querySelector('div[data-testid="reply"]');
-            if (replyButton) {
-                replyButton.click();
-                await sleep(1000);
-            }
-
-            // Find the reply textarea and insert text
+            // Find the reply textarea (should be visible in modal now)
             await insertReplyText(response.comment);
 
-            showNotification('✨ Reply generated! Review and post when ready.');
+            showNotification('✨ Reply generated!');
             button.innerHTML = originalHTML;
 
         } catch (error) {
-            console.error('[Echo X Driver] Manual generation error:', error);
+            console.error('[Echo X Driver] Error:', error);
             showNotification(`Error: ${error.message}`, 'error');
-            button.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-                <span>Generate Reply</span>
-            `;
+            button.innerHTML = originalHTML;
         } finally {
             button.disabled = false;
-            button.style.opacity = '1';
             button.style.cursor = 'pointer';
         }
     }
@@ -326,7 +372,7 @@
         textarea.focus();
         await sleep(200);
 
-        // Use clipboard paste method (same as Reddit - works for Draft.js editors)
+        // Use clipboard paste method
         try {
             await navigator.clipboard.writeText(text);
 
