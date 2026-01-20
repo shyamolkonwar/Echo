@@ -58,7 +58,32 @@
     function startManualButtonObserver() {
         console.log('[Echo X Driver] Starting manual button observer...');
 
+        // Inject styles for conditional display
+        if (!document.querySelector('#echo-x-style')) {
+            const style = document.createElement('style');
+            style.id = 'echo-x-style';
+            style.textContent = `
+                /* Hide tone selector by default (Feed view) */
+                .echo-x-tone-select {
+                    display: none !important;
+                }
+                
+                /* Show tone selector in Detail view */
+                body.echo-x-detail-view .echo-x-tone-select {
+                    display: block !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
         const checkAndInjectButtons = () => {
+            // Update view state based on URL
+            if (window.location.pathname.includes('/status/')) {
+                document.body.classList.add('echo-x-detail-view');
+            } else {
+                document.body.classList.remove('echo-x-detail-view');
+            }
+
             // Find all tweets on the page
             const tweets = document.querySelectorAll(window.X_SELECTORS?.tweet || 'article[data-testid="tweet"]');
 
