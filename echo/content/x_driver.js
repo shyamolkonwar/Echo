@@ -155,7 +155,7 @@
             padding: 4px 8px;
             background: transparent;
             color: #71767b;
-            border: 1px solid transparent;
+            border: 1px solid rgba(29, 155, 240, 0.5);
             border-radius: 16px;
             font-size: 13px;
             font-weight: 500;
@@ -217,10 +217,11 @@
             padding: 0;
             background: transparent;
             color: #71767b;
-            border: none;
+            border: 1px solid rgba(29, 155, 240, 0.5);
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.2s ease;
+            margin-left: 0px;
         `;
 
         button.addEventListener('mouseenter', () => {
