@@ -287,7 +287,7 @@ class EchoPopup {
         // 6. Load Tone Settings into Radio Buttons
         const linkedinTone = platforms.linkedin?.quickTone || 'professional';
         const redditTone = platforms.reddit?.quickTone || 'sarcastic';
-        const xTone = platforms.x?.quickTone || 'shitposter';
+        const xTone = platforms.x?.quickTone || 'analytical';
 
         // Set LinkedIn tone radio
         document.querySelectorAll('input[name="quick-tone"]').forEach(radio => {

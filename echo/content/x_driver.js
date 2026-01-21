@@ -178,10 +178,10 @@
             display: block; /* Always visible in toolbar */
         `;
         toneSelect.innerHTML = `
-            <option value="shitposter">🤪 Shitposter</option>
-            <option value="contrarian">🤔 Contrarian</option>
-            <option value="builder">🛠️ Builder</option>
-            <option value="insightful">💡 Insightful</option>
+            <option value="analytical">🧠 Analytical Realist</option>
+            <option value="in-the-trenches">🛠️ Fellow Builder</option>
+            <option value="contrarian">🤔 Nuanced Contrarian</option>
+            <option value="minimalist">⚡ Action Simplifier</option>
         `;
 
         // Hover effect for tone selector
@@ -196,7 +196,7 @@
 
         // Load saved tone
         chrome.storage.local.get('xQuickTone').then(data => {
-            toneSelect.value = data.xQuickTone || 'shitposter';
+            toneSelect.value = data.xQuickTone || 'analytical';
         });
 
         // Save tone on change
