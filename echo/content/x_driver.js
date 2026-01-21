@@ -181,6 +181,7 @@
             <option value="shitposter">🤪 Shitposter</option>
             <option value="contrarian">🤔 Contrarian</option>
             <option value="builder">🛠️ Builder</option>
+            <option value="insightful">💡 Insightful</option>
         `;
 
         // Hover effect for tone selector

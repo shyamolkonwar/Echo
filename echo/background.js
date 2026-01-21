@@ -53,7 +53,8 @@ async function handleGenerateComment(message, sendResponse) {
             'apiKey',
             'apiProvider',
             'voiceDna',
-            'responseLength'
+            'responseLength',
+            'platforms'
         ]);
 
         if (!settings.apiKey) {
@@ -332,12 +333,14 @@ function getSubredditRules(subreddit, flair) {
 // ==================== X (TWITTER) SPECIFIC PROMPT ====================
 function buildXPrompt(postData, quickTone, settings) {
     const hasImage = postData.hasImage === true;
+    const userVoice = settings.platforms?.x?.voice || '';
 
     // Map X-specific tones
     const toneDescriptions = {
         'shitposter': 'Chaotic shitposter energy. Lowercase, memes, very short. Examples: "real", "big if true", "this", "lmao what". Maximum 50 characters. Be unhinged but not offensive.',
         'contrarian': 'Contrarian devil\'s advocate. Disagree or ask a challenging question. Push back on the premise. Be provocative but intelligent.',
-        'builder': 'Supportive builder/tech community vibe. Technical but encouraging. Share your experience building. Use "shipped", "built", "launched" language.'
+        'builder': 'Supportive builder/tech community vibe. Technical but encouraging. Share your experience building. Use "shipped", "built", "launched" language.',
+        'insightful': 'Thoughtful and insightful. Add unique perspective or valuable context. Share knowledge. Be the smartest person in the room without being arrogant.'
     };
 
     const activeTone = toneDescriptions[quickTone] || toneDescriptions['shitposter'];
@@ -387,7 +390,11 @@ The tweet contains an image. Reference it if relevant but don't over-describe.` 
 # SECTION 4: YOUR TONE (CRITICAL)
 **TONE:** ${activeTone}
 
-Write your reply in EXACTLY this tone. This is the most important instruction.
+${userVoice ? `# SECTION 4.5: YOUR PERSONA (USER'S VOICE)
+**VOICE:** ${userVoice}
+Embody this persona while writing. This is how the user wants you to sound.` : ''}
+
+Write your reply in EXACTLY this tone and persona. This is the most important instruction.
 
 # SECTION 5: WHAT MAKES A GOOD X REPLY
 1. Add value or entertainment
