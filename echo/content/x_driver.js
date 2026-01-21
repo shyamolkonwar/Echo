@@ -178,10 +178,10 @@
             display: block; /* Always visible in toolbar */
         `;
         toneSelect.innerHTML = `
-            <option value="analytical">🧠 Analytical Realist</option>
-            <option value="in-the-trenches">🛠️ Fellow Builder</option>
-            <option value="contrarian">🤔 Nuanced Contrarian</option>
-            <option value="minimalist">⚡ Action Simplifier</option>
+            <option value="analytical">🧠 Analytical</option>
+            <option value="in-the-trenches">🛠️ Builder</option>
+            <option value="contrarian">🤔 Contrarian</option>
+            <option value="minimalist">⚡ Simplifier</option>
         `;
 
         // Hover effect for tone selector
