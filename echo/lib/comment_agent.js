@@ -14,8 +14,8 @@ const MEMORY_LIMITS = {
 };
 
 const AGENT_LIMITS = {
-    strategistRounds: 6,
-    editorRounds: 4
+    strategistRounds: 10,
+    editorRounds: 6
 };
 
 const LEGACY_TONE_MAP = {
@@ -82,88 +82,6 @@ const CATEGORY_PROFILES = {
         preferredArchetypes: ['specific-experience', 'operational-extension', 'gentle-validation'],
         avoid: 'Do not invent war stories or overdramatize.'
     }
-};
-
-const FALLBACK_SKILLS = {
-    version: 1,
-    skills: [
-        {
-            id: 'founder-operator-core',
-            name: 'Founder Operator Core',
-            description: 'Writes like an operator founder focused on execution reality, practical signal, and founder restraint.',
-            userSelectable: true,
-            instructions: [
-                'Write like someone who has shipped, hired, missed targets, and fixed broken systems.',
-                'Anchor the comment to one concrete detail from the post.',
-                'If you agree, add why, how, or a missing operational layer.',
-                'If you disagree, narrow the claim calmly and specifically.',
-                'Prefer execution truth, customer reality, tradeoffs, and team dynamics over motivational framing.',
-                'Do not sound like a creator trying to sound founder-y.'
-            ],
-            preferredArchetypes: [
-                'operational-extension',
-                'specific-experience',
-                'tactical-reframe',
-                'calm-contrarian'
-            ],
-            allowedTools: [
-                'get_post_context',
-                'get_user_voice_profile',
-                'get_platform_constraints',
-                'get_category_strategy',
-                'classify_post',
-                'extract_founder_hooks',
-                'find_best_comment_archetypes',
-                'get_recent_approved_comments',
-                'score_authenticity',
-                'detect_ai_slop',
-                'check_comment_constraints'
-            ]
-        },
-        {
-            id: 'anti-slop-editor',
-            name: 'Anti-Slop Editor',
-            description: 'Always-on editorial pass that removes generic praise, creator energy, and synthetic polish.',
-            userSelectable: false,
-            instructions: [
-                'Tighten comments until they sound typed, not authored.',
-                'Remove generic praise, vague abstractions, and symmetrical social-copy cadence.',
-                'Preserve the strongest concrete detail from the original draft.',
-                'Choose restraint over flourish every time.'
-            ],
-            preferredArchetypes: ['editorial-tighten'],
-            allowedTools: [
-                'get_platform_constraints',
-                'get_category_strategy',
-                'score_authenticity',
-                'detect_ai_slop',
-                'check_comment_constraints'
-            ]
-        },
-        {
-            id: 'humanizer',
-            name: 'Humanizer',
-            description: 'Always-on humanization pass that strips AI writing patterns and makes the comment sound more natural, specific, and human-written.',
-            userSelectable: false,
-            instructions: [
-                'Rewrite, do not just trim. Keep the core meaning while making the writing sound naturally human.',
-                'Cut signs of AI writing: inflated significance, promotional language, vague attributions, filler phrases, signposting, fake profundity, and tidy rule-of-three rhythm.',
-                'Prefer simple constructions, concrete details, varied sentence length, and direct statements over polished social-copy cadence.',
-                'Use plain punctuation. No em dash or en dash. No chatbot framing like "here is" or "let me know".',
-                'Do not make the writing sterile. The final line should feel typed by a thoughtful founder, not authored by a content model.'
-            ],
-            preferredArchetypes: ['humanize-and-tighten'],
-            allowedTools: [
-                'get_post_context',
-                'get_user_voice_profile',
-                'get_platform_constraints',
-                'get_category_strategy',
-                'score_authenticity',
-                'detect_ai_slop',
-                'check_comment_constraints'
-            ]
-        }
-    ]
 };
 
 let cachedSkillRegistry = null;
@@ -406,33 +324,7 @@ async function runToolLoop({ apiKey, endpoint, model, messages, tools, finalTool
         }
     }
 
-    const fallback = await callChatCompletion({
-        apiKey,
-        endpoint,
-        model,
-        messages: [
-            ...conversation,
-            {
-                role: 'user',
-                content: 'You are out of tool rounds. Return only JSON with keys comment, archetype, and confidence. Do not call tools.'
-            }
-        ],
-        tools: [],
-        temperature,
-        maxTokens
-    });
-
-    const fallbackContent = fallback?.choices?.[0]?.message?.content?.trim() || '';
-    if (fallbackContent) {
-        const parsed = safeParseJson(stripCodeFence(fallbackContent), null);
-        if (parsed && typeof parsed.comment === 'string') {
-            return normalizeFinalResult(parsed, fallbackContent);
-        }
-
-        return normalizeFinalResult({ comment: fallbackContent, archetype: finalToolName }, fallbackContent);
-    }
-
-    throw new Error('Agent exhausted its reasoning rounds before returning a comment.');
+    throw new Error('Agent exhausted its reasoning rounds before returning a comment via tool call.');
 }
 
 function buildToolset({ context, mode }) {
@@ -443,7 +335,7 @@ function buildToolset({ context, mode }) {
         ]
         : context.skill.allowedTools || []);
 
-    const sharedTools = [
+    const planningTools = [
         createTool('get_post_context', 'Returns the normalized post context so you can anchor your comment to real details.', {
             type: 'object',
             properties: {
@@ -485,7 +377,30 @@ function buildToolset({ context, mode }) {
             type: 'object',
             properties: {},
             additionalProperties: false
-        }, async () => getRecentApprovedComments(context)),
+        }, async () => getRecentApprovedComments(context))
+    ];
+
+    const evaluationTools = [
+        createTool('get_post_context', 'Returns the normalized post context.', {
+            type: 'object',
+            properties: {},
+            additionalProperties: false
+        }, async () => { const p = buildPostContextPayload(context); delete p.voiceProfile; delete p.selectedCategory; return p; }),
+        createTool('get_user_voice_profile', 'Returns the founder voice profile and approved examples.', {
+            type: 'object',
+            properties: {},
+            additionalProperties: false
+        }, async () => ({ summary: context.voiceProfile.summary, recentExamples: context.voiceProfile.recentApprovedExamples })),
+        createTool('get_platform_constraints', 'Returns platform length and banned-pattern constraints.', {
+            type: 'object',
+            properties: {},
+            additionalProperties: false
+        }, async () => context.constraints),
+        createTool('get_category_strategy', 'Returns the active category profile and bias.', {
+            type: 'object',
+            properties: {},
+            additionalProperties: false
+        }, async () => context.categoryProfile),
         createTool('score_authenticity', 'Scores how founder-native, specific, and human a candidate comment feels.', {
             type: 'object',
             properties: {
@@ -512,6 +427,8 @@ function buildToolset({ context, mode }) {
         }, async ({ comment }) => checkCommentConstraints(comment, context))
     ];
 
+    const candidateTools = mode === 'editor' ? evaluationTools : planningTools;
+
     const finalTool = mode === 'editor'
         ? createTool('submit_final_comment', 'Submit the final edited founder comment when it is ready.', {
             type: 'object',
@@ -537,7 +454,7 @@ function buildToolset({ context, mode }) {
         }, async (args) => args);
 
     return [
-        ...sharedTools.filter(tool => allowedTools.has(tool.definition.function.name)),
+        ...candidateTools.filter(tool => allowedTools.has(tool.definition.function.name)),
         finalTool
     ];
 }
@@ -546,7 +463,7 @@ function buildStrategistSystemPrompt(context) {
     return [
         'You are Founder Comment Agent.',
         'Write comments like a real founder with scar tissue, operating context, and restraint.',
-        'Use tools before drafting so your comment is anchored to the actual post, the user voice, and the active category strategy.',
+        'Call ALL the tools you need in ONE round before drafting. Batch independent calls together.',
         'Do not output generic praise, polished creator-speak, or random startup jargon.',
         `Active skill: ${context.skill.name}. ${context.skill.description}`,
         `Skill instructions: ${context.skill.instructions.join(' ')}`,
@@ -980,19 +897,25 @@ async function callChatCompletion({ apiKey, endpoint, model, messages, tools, te
     });
 
     if (!response.ok) {
-        let message = `Azure API error: ${response.status}`;
+        let rawBody = '';
 
         try {
-            const errorJson = await response.json();
-            message = errorJson?.error?.message || message;
-        } catch (error) {
-            const errorText = await response.text();
-            if (errorText) {
-                message = errorText;
-            }
+            rawBody = await response.text();
+        } catch (textError) {
+            rawBody = '(could not read error body)';
         }
 
-        throw new Error(message);
+        let detail = rawBody;
+        try {
+            const errorJson = JSON.parse(rawBody);
+            if (errorJson?.error?.message) {
+                detail = errorJson.error.message;
+            }
+        } catch (parseError) {
+        }
+
+        console.error(`[Comment Agent] Azure ${response.status} — endpoint: ${endpoint} — model: ${model} — ${detail}`);
+        throw new Error(`Azure API error ${response.status}: ${detail.slice(0, 300)}`);
     }
 
     return response.json();
@@ -1003,24 +926,26 @@ async function loadSkillRegistry() {
         return cachedSkillRegistry;
     }
 
-    try {
-        const response = await fetch(SKILLS_URL);
-        if (!response.ok) {
-            throw new Error(`Failed to load skills: ${response.status}`);
-        }
-
-        const registry = await response.json();
-        cachedSkillRegistry = registry?.skills?.length ? registry : FALLBACK_SKILLS;
-        return cachedSkillRegistry;
-    } catch (error) {
-        console.warn('[Comment Agent] Falling back to bundled skills:', error);
-        cachedSkillRegistry = FALLBACK_SKILLS;
-        return cachedSkillRegistry;
+    const response = await fetch(SKILLS_URL);
+    if (!response.ok) {
+        throw new Error(`Failed to load skills from ${SKILLS_URL}: HTTP ${response.status}`);
     }
+
+    const registry = await response.json();
+    if (!registry?.skills?.length) {
+        throw new Error('Skill registry loaded but contains no skills.');
+    }
+
+    cachedSkillRegistry = registry;
+    return cachedSkillRegistry;
 }
 
 function resolveSkill(registry, skillId) {
-    return registry.skills.find(skill => skill.id === skillId) || registry.skills[0] || FALLBACK_SKILLS.skills[0];
+    const skill = registry.skills.find(skill => skill.id === skillId);
+    if (!skill) {
+        throw new Error(`Skill "${skillId}" not found in registry. Available: ${registry.skills.map(s => s.id).join(', ')}`);
+    }
+    return skill;
 }
 
 async function getAgentMemory() {
