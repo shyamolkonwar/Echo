@@ -153,16 +153,22 @@
             padding-right: 30px;
         `;
         toneSelect.innerHTML = `
-            <option value="sarcastic">😏 Sarcastic</option>
-            <option value="witty">🎭 Witty</option>
-            <option value="cynical">🙄 Cynical</option>
-            <option value="informative">📚 Informative</option>
-            <option value="supportive">🤝 Supportive</option>
+            <option value="founder">Founder Trenches</option>
+            <option value="operator">Operator Systems</option>
+            <option value="contrarian">Founder Contrarian</option>
         `;
 
         // Load saved tone
         chrome.storage.local.get('redditQuickTone').then(data => {
-            toneSelect.value = data.redditQuickTone || 'sarcastic';
+            const legacyToneMap = {
+                sarcastic: 'contrarian',
+                witty: 'founder',
+                cynical: 'contrarian',
+                informative: 'operator',
+                supportive: 'founder'
+            };
+            const tone = legacyToneMap[data.redditQuickTone] || data.redditQuickTone || 'founder';
+            toneSelect.value = tone;
         });
 
         // Save tone on change
@@ -273,7 +279,7 @@
                 type: 'GENERATE_COMMENT',
                 postData: postData,
                 platform: 'reddit',
-                quickTone: tone || 'witty'
+                quickTone: tone || 'founder'
             });
 
             if (response.error) throw new Error(response.error);
@@ -287,6 +293,13 @@
 
             // Insert the comment
             await insertCommentIntoEditor(commentBox, response.comment);
+            await sendCommentFeedback({
+                action: 'used',
+                platform: 'reddit',
+                postData,
+                comment: response.comment,
+                meta: response.meta || null
+            });
 
             showNotification('✨ Comment generated! Review and post when ready.');
 
@@ -405,6 +418,17 @@
 
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    async function sendCommentFeedback(payload) {
+        try {
+            await chrome.runtime.sendMessage({
+                type: 'COMMENT_FEEDBACK',
+                ...payload
+            });
+        } catch (error) {
+            console.debug('[Echo Reddit Driver] Comment feedback skipped:', error);
+        }
     }
 
     // ==================== FEED OBSERVER (Semi-Auto) ====================

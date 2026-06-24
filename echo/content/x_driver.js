@@ -178,10 +178,13 @@
             display: block; /* Always visible in toolbar */
         `;
         toneSelect.innerHTML = `
-            <option value="analytical">🧠 Analytical</option>
-            <option value="in-the-trenches">🛠️ Builder</option>
-            <option value="contrarian">🤔 Contrarian</option>
-            <option value="minimalist">⚡ Simplifier</option>
+            <option value="human-connection">Human</option>
+            <option value="operational-insight">Ops Insight</option>
+            <option value="emotional">Emotional</option>
+            <option value="light-joke">Light Joke</option>
+            <option value="reflective">Reflective</option>
+            <option value="respectful-contrarian">Contrarian</option>
+            <option value="shared-scar">Shared Scar</option>
         `;
 
         // Hover effect for tone selector
@@ -196,7 +199,16 @@
 
         // Load saved tone
         chrome.storage.local.get('xQuickTone').then(data => {
-            toneSelect.value = data.xQuickTone || 'analytical';
+            const legacyToneMap = {
+                analytical: 'operational-insight',
+                'in-the-trenches': 'shared-scar',
+                minimalist: 'human-connection',
+                founder: 'human-connection',
+                operator: 'operational-insight',
+                contrarian: 'respectful-contrarian'
+            };
+            const tone = legacyToneMap[data.xQuickTone] || data.xQuickTone || 'human-connection';
+            toneSelect.value = tone;
         });
 
         // Save tone on change
@@ -315,7 +327,7 @@
                 type: 'GENERATE_COMMENT',
                 postData: tweetData,
                 platform: 'x',
-                quickTone: tone || 'shitposter'
+                quickTone: tone || 'human-connection'
             });
 
             if (response.error) throw new Error(response.error);
@@ -327,6 +339,13 @@
             // We can search globally for the focused textarea OR search relative to button.
 
             await insertReplyText(response.comment, button);
+            await sendCommentFeedback({
+                action: 'used',
+                platform: 'x',
+                postData: tweetData,
+                comment: response.comment,
+                meta: response.meta || null
+            });
 
             // Log activity
             await logActivity(tweetData);
@@ -451,6 +470,17 @@
             await chrome.storage.local.set({ activityLog: log.slice(0, 10) });
         } catch (e) {
             console.error('[Echo X Driver] Failed to save activity log:', e);
+        }
+    }
+
+    async function sendCommentFeedback(payload) {
+        try {
+            await chrome.runtime.sendMessage({
+                type: 'COMMENT_FEEDBACK',
+                ...payload
+            });
+        } catch (error) {
+            console.debug('[Echo X Driver] Comment feedback skipped:', error);
         }
     }
 

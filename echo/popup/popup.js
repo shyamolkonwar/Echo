@@ -1,10 +1,11 @@
-// Echo Chrome Extension - Popup Script
+// Rivtor Founder OS - Popup Script
 // Handles UI interactions and storage management
 
 class EchoPopup {
     constructor() {
         this.elements = {};
         this.currentPlatform = 'linkedin'; // Default state
+        this.skillCatalog = [];
         this.init();
     }
 
@@ -14,6 +15,7 @@ class EchoPopup {
 
         this.cacheElements();
         this.bindEvents();
+        await this.loadSkillCatalog();
         await this.loadSettings();
         await this.checkOnboarding();
         this.updateActivityLog();
@@ -51,7 +53,10 @@ class EchoPopup {
         // Form Inputs
         this.elements.apiKey = document.getElementById('api-key');
         this.elements.toggleKeyVisibility = document.getElementById('toggle-key-visibility');
-        this.elements.apiProvider = document.querySelectorAll('input[name="api-provider"]');
+        this.elements.azureBaseUrl = document.getElementById('azure-base-url');
+        this.elements.azureModel = document.getElementById('azure-model');
+        this.elements.commentSkill = document.getElementById('comment-skill');
+        this.elements.commentSkillDescription = document.getElementById('comment-skill-description');
 
         // Platform Configs
         this.elements.linkedinVoice = document.getElementById('linkedin-voice');
@@ -72,7 +77,6 @@ class EchoPopup {
 
         // Onboarding
         this.elements.onboardingSteps = document.querySelectorAll('.onboarding-step');
-        this.elements.onboardProvider = document.getElementById('onboard-provider');
         this.elements.onboardApiKey = document.getElementById('onboard-api-key');
         this.elements.onboardVoice = document.getElementById('onboard-voice');
         this.elements.completeOnboarding = document.getElementById('complete-onboarding');
@@ -87,6 +91,7 @@ class EchoPopup {
 
         // API Key Visibility
         this.elements.toggleKeyVisibility?.addEventListener('click', () => this.toggleKeyVisibility());
+        this.elements.commentSkill?.addEventListener('change', () => this.updateSkillDescription());
 
         // Open Dashboard
         this.elements.openDashboard?.addEventListener('click', () => this.openDashboard());
@@ -228,23 +233,64 @@ class EchoPopup {
 
     // ==================== SETTINGS LOGIC ====================
 
+    async loadSkillCatalog() {
+        const fallback = [
+            {
+                id: 'founder-operator-core',
+                name: 'Founder Operator Core',
+                description: 'Writes like an operator founder focused on execution reality, practical signal, and restraint.',
+                userSelectable: true
+            }
+        ];
+
+        try {
+            const response = await fetch(chrome.runtime.getURL('skills/comment-agent-skills.json'));
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            this.skillCatalog = (data.skills || []).filter(skill => skill.userSelectable !== false);
+        } catch (error) {
+            console.warn('[Popup] Failed to load skill catalog:', error);
+            this.skillCatalog = fallback;
+        }
+
+        if (!this.skillCatalog.length) {
+            this.skillCatalog = fallback;
+        }
+
+        if (this.elements.commentSkill) {
+            this.elements.commentSkill.innerHTML = this.skillCatalog.map(skill => `
+                <option value="${skill.id}">${skill.name}</option>
+            `).join('');
+        }
+
+        this.updateSkillDescription();
+    }
+
     async loadSettings() {
         const data = await chrome.storage.local.get([
-            'apiKey', 'apiProvider', 'platforms', 'isActive', 'delayTimer', 'scrollSpeed'
+            'apiKey', 'apiProvider', 'platforms', 'isActive', 'delayTimer', 'scrollSpeed', 'azureBaseUrl', 'azureModel', 'selectedSkill'
         ]);
 
         const platforms = data.platforms || {
-            linkedin: { voice: '', enabled: true, autopilot: false, quickTone: 'professional' },
-            reddit: { voice: '', enabled: true, autopilot: false, quickTone: 'witty', subreddits: [] }
+            linkedin: { voice: '', enabled: true, autopilot: false, quickTone: 'human-connection' },
+            reddit: { voice: '', enabled: true, autopilot: false, quickTone: 'human-connection', subreddits: [] }
         };
 
         // 1. General Settings
         if (this.elements.apiKey) this.elements.apiKey.value = data.apiKey || '';
 
-        if (this.elements.apiProvider) {
-            this.elements.apiProvider.forEach(radio => {
-                radio.checked = radio.value === (data.apiProvider || 'openai');
-            });
+        if (this.elements.azureBaseUrl) {
+            this.elements.azureBaseUrl.value = data.azureBaseUrl || 'https://rivtor-resource.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview';
+        }
+
+        if (this.elements.azureModel) {
+            this.elements.azureModel.value = data.azureModel || 'DeepSeek-V4-Pro';
+        }
+
+        if (this.elements.commentSkill) {
+            this.elements.commentSkill.value = data.selectedSkill || 'founder-operator-core';
+            this.updateSkillDescription();
         }
 
         if (this.elements.delayTimer) this.elements.delayTimer.value = data.delayTimer || 2;
@@ -285,9 +331,45 @@ class EchoPopup {
         }
 
         // 6. Load Tone Settings into Radio Buttons
-        const linkedinTone = platforms.linkedin?.quickTone || 'professional';
-        const redditTone = platforms.reddit?.quickTone || 'sarcastic';
-        const xTone = platforms.x?.quickTone || 'analytical';
+        const legacyToneMap = {
+            professional: 'human-connection',
+            casual: 'human-connection',
+            supportive: 'emotional',
+            insightful: 'operational-insight',
+            enthusiastic: 'light-joke',
+            appreciative: 'emotional',
+            founder: 'human-connection',
+            operator: 'operational-insight',
+            contrarian: 'respectful-contrarian',
+            'pain-mirror': 'human-connection'
+        };
+
+        const linkedinToneRaw = platforms.linkedin?.quickTone || 'human-connection';
+        const linkedinTone = legacyToneMap[linkedinToneRaw] || linkedinToneRaw;
+        const redditToneMap = {
+            sarcastic: 'respectful-contrarian',
+            witty: 'light-joke',
+            snarky: 'respectful-contrarian',
+            cynical: 'reflective',
+            informative: 'operational-insight',
+            supportive: 'emotional',
+            founder: 'human-connection',
+            operator: 'operational-insight',
+            contrarian: 'respectful-contrarian',
+            'pain-mirror': 'human-connection'
+        };
+        const xToneMap = {
+            analytical: 'operational-insight',
+            'in-the-trenches': 'shared-scar',
+            minimalist: 'human-connection',
+            founder: 'human-connection',
+            operator: 'operational-insight',
+            contrarian: 'respectful-contrarian',
+            witty: 'light-joke'
+        };
+
+        const redditTone = redditToneMap[platforms.reddit?.quickTone] || platforms.reddit?.quickTone || 'human-connection';
+        const xTone = xToneMap[platforms.x?.quickTone] || platforms.x?.quickTone || 'human-connection';
 
         // Set LinkedIn tone radio
         document.querySelectorAll('input[name="quick-tone"]').forEach(radio => {
@@ -310,9 +392,12 @@ class EchoPopup {
 
     async saveSettings() {
         const apiKey = this.elements.apiKey.value.trim();
-        const apiProvider = Array.from(this.elements.apiProvider).find(r => r.checked)?.value || 'openai';
+        const apiProvider = 'azure';
         const delayTimer = parseInt(this.elements.delayTimer.value) || 2;
         const scrollSpeed = parseInt(this.elements.scrollSpeed.value) || 2;
+        const azureBaseUrl = this.elements.azureBaseUrl?.value?.trim() || 'https://rivtor-resource.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview';
+        const azureModel = this.elements.azureModel?.value?.trim() || 'DeepSeek-V4-Pro';
+        const selectedSkill = this.elements.commentSkill?.value || 'founder-operator-core';
 
         // Get existing platforms data to merge
         const { platforms } = await chrome.storage.local.get('platforms');
@@ -345,6 +430,9 @@ class EchoPopup {
         await chrome.storage.local.set({
             apiKey,
             apiProvider,
+            azureBaseUrl,
+            azureModel,
+            selectedSkill,
             delayTimer,
             scrollSpeed,
             platforms: updatedPlatforms
@@ -399,7 +487,18 @@ class EchoPopup {
         }
 
         this.sendMessageToActiveTab({ type: 'UPDATE_TONE', quickTone, platform });
-        this.showToast(`Tone set to ${quickTone}`);
+
+        const toneLabels = {
+            'human-connection': 'Human Connection',
+            'operational-insight': 'Operational Insight',
+            emotional: 'Emotional',
+            reflective: 'Reflective',
+            'light-joke': 'Light Joke',
+            'respectful-contrarian': 'Respectful Contrarian',
+            'shared-scar': 'Shared Scar'
+        };
+
+        this.showToast(`Type set to ${toneLabels[quickTone] || quickTone}`);
     }
 
     // ==================== UTILS ====================
@@ -460,6 +559,14 @@ class EchoPopup {
         }
     }
 
+    updateSkillDescription() {
+        const selectedId = this.elements.commentSkill?.value || 'founder-operator-core';
+        const selectedSkill = this.skillCatalog.find(skill => skill.id === selectedId) || this.skillCatalog[0];
+        if (this.elements.commentSkillDescription && selectedSkill) {
+            this.elements.commentSkillDescription.textContent = selectedSkill.description;
+        }
+    }
+
     openDashboard() {
         chrome.tabs.create({ url: chrome.runtime.getURL('dashboard/dashboard.html') });
     }
@@ -471,7 +578,7 @@ class EchoPopup {
         if (!this.elements.activityLog) return;
 
         if (log.length === 0) {
-            this.elements.activityLog.innerHTML = '<div class="activity-empty">No activity yet. Enable Echo and browse.</div>';
+            this.elements.activityLog.innerHTML = '<div class="activity-empty">No activity yet. Enable Founder Mode and browse LinkedIn.</div>';
             return;
         }
 
@@ -515,7 +622,6 @@ class EchoPopup {
 
     async completeOnboarding() {
         const apiKey = this.elements.onboardApiKey.value.trim();
-        const provider = this.elements.onboardProvider.value;
         const voice = this.elements.onboardVoice.value.trim();
 
         if (!apiKey) {
@@ -527,12 +633,16 @@ class EchoPopup {
         // Initialize v2 schema
         const settings = {
             apiKey: apiKey,
-            apiProvider: provider,
+            apiProvider: 'azure',
+            azureBaseUrl: 'https://rivtor-resource.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview',
+            azureModel: 'DeepSeek-V4-Pro',
+            selectedSkill: 'founder-operator-core',
+            commentAgentMemory: { generated: [], approved: [], rejected: [], feedback: [] },
             onboardingComplete: true,
             isActive: true,
             platforms: {
-                linkedin: { voice: voice, enabled: true, autopilot: false, quickTone: 'professional' },
-                reddit: { voice: '', enabled: true, autopilot: false, quickTone: 'witty' }
+                linkedin: { voice: voice, enabled: true, autopilot: false, quickTone: 'human-connection' },
+                reddit: { voice: '', enabled: true, autopilot: false, quickTone: 'human-connection' }
             }
         };
 
@@ -551,11 +661,17 @@ class EchoPopup {
         const old = await chrome.storage.local.get(['userTone', 'voiceDna', 'apiKey', 'apiProvider']);
 
         const newSchema = {
+            apiProvider: old.apiProvider || 'azure',
+            azureBaseUrl: 'https://rivtor-resource.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview',
+            azureModel: 'DeepSeek-V4-Pro',
+            selectedSkill: 'founder-operator-core',
+            commentAgentMemory: { generated: [], approved: [], rejected: [], feedback: [] },
             platforms: {
                 linkedin: {
                     voice: old.userTone || old.voiceDna || '',
                     enabled: true,
-                    autopilot: false
+                    autopilot: false,
+                    quickTone: 'human-connection'
                 },
                 reddit: {
                     voice: '',

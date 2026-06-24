@@ -36,6 +36,39 @@ class AutoPilotDriver {
         // Scroll tracking
         this.noNewPostsCount = 0;
         this.maxNoNewPosts = 10; // Allow more scrolls before giving up
+
+        // DOM selectors (LinkedIn)
+        this.SELECTORS = {
+            feedPosts: [
+                'div.feed-shared-update-v2',
+                'div[data-urn^="urn:li:activity:"]',
+                'div[data-urn*="activity"]'
+            ],
+            commentEditors: [
+                '.tiptap.ProseMirror[contenteditable="true"]',
+                'div[data-testid="ui-core-tiptap-text-editor-wrapper"] div[contenteditable="true"][role="textbox"]',
+                'div[contenteditable="true"][role="textbox"][aria-label*="comment" i]',
+                '.ql-editor[contenteditable="true"]',
+                '.comments-comment-box div[contenteditable="true"]',
+                '.comments-comment-texteditor div[contenteditable="true"]'
+            ],
+            commentContainers: [
+                'div[componentkey^="commentBox-"]',
+                'div[componentkey*="commentBox-"]',
+                '.comments-comment-box',
+                '.comments-comment-texteditor',
+                'form.comments-comment-box__form'
+            ],
+            submitButtons: [
+                'button[componentkey*="commentButtonSection"]',
+                'button.comments-comment-box__submit-button--cr',
+                'button[class*="comments-comment-box__submit-button"]',
+                'button.comments-comment-box__submit-button',
+                'button[data-control-name="submit_comment"]',
+                'button[type="submit"][class*="comment"]',
+                'button[type="button"][aria-label*="comment" i]'
+            ]
+        };
     }
 
     async init() {
@@ -232,13 +265,132 @@ class AutoPilotDriver {
         return true;
     }
 
+    getFeedPosts() {
+        return document.querySelectorAll(this.SELECTORS.feedPosts.join(', '));
+    }
+
+    isElementVisible(element) {
+        if (!element) return false;
+        if (element.offsetParent !== null) return true;
+
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    findCommentEditor(post = null) {
+        const contexts = [];
+        if (post) {
+            contexts.push(post);
+            if (post.parentElement) contexts.push(post.parentElement);
+        }
+        if (this.currentPost) {
+            contexts.push(this.currentPost);
+            if (this.currentPost.parentElement) contexts.push(this.currentPost.parentElement);
+        }
+        contexts.push(document);
+
+        for (const context of contexts) {
+            for (const selector of this.SELECTORS.commentEditors) {
+                const editors = context.querySelectorAll(selector);
+                for (const editor of editors) {
+                    if (this.isElementVisible(editor)) {
+                        return editor;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    getActiveCommentContainer() {
+        const containerSelector = this.SELECTORS.commentContainers.join(', ');
+
+        if (this.currentEditor) {
+            const currentContainer = this.currentEditor.closest(containerSelector);
+            if (currentContainer) return currentContainer;
+        }
+
+        if (this.currentPost) {
+            const postContainer = this.currentPost.querySelector(containerSelector);
+            if (postContainer) return postContainer;
+        }
+
+        return document.querySelector(containerSelector);
+    }
+
+    clearEditorContent(editor) {
+        try {
+            editor.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('delete', false, null);
+        } catch (e) {
+        }
+
+        if (editor.classList.contains('ProseMirror')) {
+            editor.innerHTML = '<p><br class="ProseMirror-trailingBreak"></p>';
+        } else if (!editor.innerText.trim()) {
+            editor.innerHTML = '';
+        }
+    }
+
+    dispatchEditorUpdateEvents(editor, comment) {
+        const events = [
+            new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertText',
+                data: comment
+            }),
+            new Event('change', { bubbles: true }),
+            new KeyboardEvent('keydown', { bubbles: true, key: ' ' }),
+            new KeyboardEvent('keyup', { bubbles: true, key: ' ' })
+        ];
+
+        events.forEach(event => editor.dispatchEvent(event));
+
+        editor.blur();
+        editor.focus();
+    }
+
+    writeCommentToEditor(editor, comment) {
+        if (!editor) return false;
+
+        editor.focus();
+        this.clearEditorContent(editor);
+
+        let inserted = false;
+        try {
+            inserted = document.execCommand('insertText', false, comment);
+        } catch (e) {
+            inserted = false;
+        }
+
+        if (!inserted || !editor.innerText.includes(comment.substring(0, 10))) {
+            const lines = comment.split('\n');
+            editor.innerHTML = '';
+            lines.forEach(line => {
+                const paragraph = document.createElement('p');
+                if (line) {
+                    paragraph.textContent = line;
+                } else {
+                    paragraph.appendChild(document.createElement('br'));
+                }
+                editor.appendChild(paragraph);
+            });
+        }
+
+        this.dispatchEditorUpdateEvents(editor, comment);
+        return editor.innerText.trim().length > 0;
+    }
+
     getVisiblePostsCount() {
-        return document.querySelectorAll('div.feed-shared-update-v2').length;
+        return this.getFeedPosts().length;
     }
 
     // ==================== TARGET SCANNING ====================
     async scanForTargets() {
-        const posts = document.querySelectorAll('div.feed-shared-update-v2');
+        const posts = this.getFeedPosts();
 
         for (const post of posts) {
             if (this.checkShouldStop()) return null;
@@ -351,6 +503,7 @@ class AutoPilotDriver {
 
     extractPostContent(post) {
         const selectors = [
+            '[data-testid="expandable-text-box"]',
             '.feed-shared-update-v2__description .break-words',
             '.feed-shared-inline-show-more-text',
             '.feed-shared-text-view span[dir="ltr"]',
@@ -372,7 +525,7 @@ class AutoPilotDriver {
     }
 
     generatePostId(post) {
-        const index = Array.from(document.querySelectorAll('div.feed-shared-update-v2')).indexOf(post);
+        const index = Array.from(this.getFeedPosts()).indexOf(post);
         return `echo-auto-${index}-${Date.now()}`;
     }
 
@@ -497,6 +650,19 @@ class AutoPilotDriver {
 
             // 5. Generate comment
             const { quickTone } = await chrome.storage.local.get('quickTone');
+            const legacyToneMap = {
+                professional: 'human-connection',
+                casual: 'human-connection',
+                supportive: 'emotional',
+                insightful: 'operational-insight',
+                enthusiastic: 'light-joke',
+                appreciative: 'emotional',
+                founder: 'human-connection',
+                operator: 'operational-insight',
+                contrarian: 'respectful-contrarian',
+                'pain-mirror': 'human-connection'
+            };
+            const activeTone = legacyToneMap[quickTone] || quickTone || 'human-connection';
 
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
@@ -506,7 +672,7 @@ class AutoPilotDriver {
                     hasImage: mediaData.hasMedia,
                     imageData: mediaData.mediaData
                 },
-                quickTone: quickTone || 'professional'
+                quickTone: activeTone
             });
 
             if (!response?.comment) {
@@ -548,6 +714,18 @@ class AutoPilotDriver {
                 hasImage: mediaData.hasMedia,
                 verified: postResult.verified,
                 verificationMethod: postResult.method
+            });
+
+            await this.sendCommentFeedback({
+                action: postResult.posted && postResult.verified ? 'posted' : 'used',
+                platform: 'linkedin',
+                postData: {
+                    authorName,
+                    content,
+                    hasImage: mediaData.hasMedia
+                },
+                comment: response.comment,
+                meta: response.meta || null
             });
 
             if (postResult.posted && postResult.verified) {
@@ -633,9 +811,9 @@ class AutoPilotDriver {
             }
 
             // Alternative: Clear the editor and press Escape
-            const editor = document.querySelector('.ql-editor[contenteditable="true"]');
+            const editor = this.findCommentEditor(this.currentPost) || this.findCommentEditor();
             if (editor) {
-                editor.innerHTML = '';
+                this.clearEditorContent(editor);
                 editor.blur();
                 // Send Escape key
                 document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27 }));
@@ -656,15 +834,28 @@ class AutoPilotDriver {
         // Store the current post for later reference
         this.currentPost = post;
 
-        let commentBtn = post.querySelector('button[aria-label*="omment"]') ||
-            post.querySelector('button.comment-button');
+        const commentButtonSelectors = [
+            'button[aria-label*="comment" i]',
+            'button.comment-button',
+            'button[data-control-name*="comment"]'
+        ];
+
+        let commentBtn = null;
+        for (const selector of commentButtonSelectors) {
+            const btn = post.querySelector(selector);
+            if (btn && this.isElementVisible(btn) && !btn.closest(this.SELECTORS.commentContainers.join(', '))) {
+                commentBtn = btn;
+                break;
+            }
+        }
 
         if (!commentBtn) {
             const buttons = post.querySelectorAll('button');
             for (const btn of buttons) {
                 const label = btn.getAttribute('aria-label')?.toLowerCase() || '';
                 const text = btn.textContent?.toLowerCase() || '';
-                if (label.includes('comment') || text.includes('comment')) {
+                if (!this.isElementVisible(btn)) continue;
+                if ((label.includes('comment') || text.includes('comment')) && !btn.closest(this.SELECTORS.commentContainers.join(', '))) {
                     commentBtn = btn;
                     break;
                 }
@@ -689,38 +880,8 @@ class AutoPilotDriver {
         while (Date.now() - startTime < timeout) {
             if (this.checkShouldStop()) return false;
 
-            // Look for editor WITHIN the post or in the comment section below it
-            let editor = post.querySelector('.ql-editor[contenteditable="true"]') ||
-                post.querySelector('div[contenteditable="true"][role="textbox"]');
-
-            // Also check for editor in sibling/child comment sections
-            if (!editor) {
-                const commentSection = post.querySelector('.comments-comment-box') ||
-                    post.querySelector('.comments-comment-texteditor');
-                if (commentSection) {
-                    editor = commentSection.querySelector('.ql-editor[contenteditable="true"]') ||
-                        commentSection.querySelector('div[contenteditable="true"][role="textbox"]');
-                }
-            }
-
-            // Fallback: check if ANY visible editor is near this post
-            if (!editor) {
-                const allEditors = document.querySelectorAll('.ql-editor[contenteditable="true"], div[contenteditable="true"][role="textbox"]');
-                for (const ed of allEditors) {
-                    if (ed.offsetParent !== null) {
-                        // Check if this editor is within the post's bounding area
-                        const postRect = post.getBoundingClientRect();
-                        const edRect = ed.getBoundingClientRect();
-                        // Editor should be below or within the post
-                        if (edRect.top >= postRect.top - 100 && edRect.top <= postRect.bottom + 300) {
-                            editor = ed;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (editor && editor.offsetParent !== null) {
+            const editor = this.findCommentEditor(post);
+            if (editor) {
                 this.currentEditor = editor; // Store for later use
                 return true;
             }
@@ -733,26 +894,8 @@ class AutoPilotDriver {
     async typeCommentSlowly(post, comment) {
         // Use the stored editor from waitForEditor, or find it scoped to post
         let editor = this.currentEditor;
-
-        // Fallback: find editor near the post
-        if (!editor || editor.offsetParent === null) {
-            editor = post.querySelector('.ql-editor[contenteditable="true"]') ||
-                post.querySelector('div[contenteditable="true"][role="textbox"]');
-        }
-
-        // Last resort: find any visible editor near this post's position
-        if (!editor) {
-            const postRect = post.getBoundingClientRect();
-            const allEditors = document.querySelectorAll('.ql-editor[contenteditable="true"], div[contenteditable="true"][role="textbox"]');
-            for (const ed of allEditors) {
-                if (ed.offsetParent !== null) {
-                    const edRect = ed.getBoundingClientRect();
-                    if (edRect.top >= postRect.top - 100 && edRect.top <= postRect.bottom + 300) {
-                        editor = ed;
-                        break;
-                    }
-                }
-            }
+        if (!editor || !this.isElementVisible(editor)) {
+            editor = this.findCommentEditor(post);
         }
 
         if (!editor) {
@@ -767,16 +910,27 @@ class AutoPilotDriver {
         await this.sleep(300);
 
         // Clear placeholder
-        if (editor.innerHTML === '<p><br></p>' || !editor.innerText.trim()) {
-            editor.innerHTML = '';
-        }
+        this.clearEditorContent(editor);
 
         // Type character by character with delays
+        let insertedText = '';
         for (let i = 0; i < comment.length; i++) {
             if (this.checkShouldStop()) break;
 
             const char = comment[i];
-            document.execCommand('insertText', false, char);
+            let inserted = false;
+            try {
+                inserted = document.execCommand('insertText', false, char);
+            } catch (e) {
+                inserted = false;
+            }
+
+            if (!inserted) {
+                insertedText = '';
+                break;
+            }
+
+            insertedText += char;
 
             // Random typing delay
             await this.sleep(this.random(30, 80));
@@ -787,22 +941,18 @@ class AutoPilotDriver {
             }
         }
 
-        // DISPATCH EVENTS - Critical for React/LinkedIn to enable Post button
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        editor.dispatchEvent(new Event('change', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: ' ' }));
-        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: ' ' }));
+        if (!insertedText || !editor.innerText.includes(comment.substring(0, 10))) {
+            this.writeCommentToEditor(editor, comment);
+        }
 
-        // Trigger blur/focus to ensure state updates
-        editor.blur();
-        await this.sleep(200);
-        editor.focus();
+        // DISPATCH EVENTS - Critical for React/LinkedIn to enable Post button
+        this.dispatchEditorUpdateEvents(editor, comment);
 
         // IMPORTANT: Wait for LinkedIn UI to enable the Post button
         await this.sleep(2000);
 
         // Visual feedback
-        const form = document.querySelector('.comments-comment-box');
+        const form = this.getActiveCommentContainer();
         if (form) {
             form.style.border = '3px solid #10B981';
             form.style.borderRadius = '8px';
@@ -817,7 +967,7 @@ class AutoPilotDriver {
         await this.sleep(3000);
 
         // Check 1: Is the comment box still full?
-        const editor = document.querySelector('.ql-editor[contenteditable="true"]');
+        const editor = this.findCommentEditor(this.currentPost) || this.findCommentEditor();
         if (!editor || editor.innerText.trim().length === 0 || editor.innerText.trim() === '') {
             return { verified: true, method: 'editor-empty' };
         }
@@ -833,7 +983,7 @@ class AutoPilotDriver {
 
         // Check 3: Wait more and check editor again
         await this.sleep(2000);
-        const editor2 = document.querySelector('.ql-editor[contenteditable="true"]');
+        const editor2 = this.findCommentEditor(this.currentPost) || this.findCommentEditor();
         if (!editor2 || editor2.innerText.trim().length === 0) {
             return { verified: true, method: 'editor-cleared' };
         }
@@ -862,23 +1012,7 @@ class AutoPilotDriver {
             await this.sleep(300);
         }
 
-        // Expanded selectors including the actual LinkedIn button classes
-        const postButtonSelectors = [
-            'button.comments-comment-box__submit-button--cr',  // LinkedIn's actual class
-            'button[class*="comments-comment-box__submit-button"]',  // Wildcard match
-            'button.comments-comment-box__submit-button',
-            'button[id^="ember"][class*="submit-button"]',  // ember ID pattern
-            'button[data-control-name="submit_comment"]',
-            'button[type="submit"][class*="comment"]',
-            '.comments-comment-box button[type="submit"]',
-            '.comments-comment-texteditor button[type="submit"]',
-            '.comments-comment-box button.artdeco-button--primary',
-            'button.artdeco-button--primary[class*="comment"]',
-            'div.comments-comment-box__button-group button',
-            'form.comments-comment-box__form button[type="submit"]',
-            'form.comments-comment-box__form button.artdeco-button--primary',
-            '.comments-comment-box__button-group button.artdeco-button--primary'
-        ];
+        const postButtonSelectors = this.SELECTORS.submitButtons;
 
         // Retry loop - 5 attempts
         for (let attempt = 1; attempt <= 5; attempt++) {
@@ -886,23 +1020,13 @@ class AutoPilotDriver {
 
             let postBtn = null;
 
-            // Strategy 1: Look within the current post first
-            if (this.currentPost) {
+            // Strategy 1: Look inside the active comment container first
+            const activeContainer = this.getActiveCommentContainer();
+            if (activeContainer) {
                 for (const selector of postButtonSelectors) {
-                    const btn = this.currentPost.querySelector(selector);
-                    if (btn && btn.offsetParent !== null) {
-                        postBtn = btn;
-                        break;
-                    }
-                }
-            }
-
-            // Strategy 2: Global selectors (only if not found in post)
-            if (!postBtn) {
-                for (const selector of postButtonSelectors) {
-                    const candidates = document.querySelectorAll(selector);
+                    const candidates = activeContainer.querySelectorAll(selector);
                     for (const btn of candidates) {
-                        if (btn.offsetParent !== null) { // Just check visible, we'll check disabled separately
+                        if (this.isElementVisible(btn)) {
                             postBtn = btn;
                             break;
                         }
@@ -911,12 +1035,43 @@ class AutoPilotDriver {
                 }
             }
 
-            // Strategy 2: Text content fallback
+            // Strategy 2: Look within the current post
+            if (!postBtn && this.currentPost) {
+                for (const selector of postButtonSelectors) {
+                    const candidates = this.currentPost.querySelectorAll(selector);
+                    for (const btn of candidates) {
+                        if (this.isElementVisible(btn)) {
+                            postBtn = btn;
+                            break;
+                        }
+                    }
+                    if (postBtn) break;
+                }
+            }
+
+            // Strategy 3: Global selectors
             if (!postBtn) {
-                const allButtons = document.querySelectorAll('.comments-comment-box button, .comments-comment-texteditor button, button.artdeco-button');
+                for (const selector of postButtonSelectors) {
+                    const candidates = document.querySelectorAll(selector);
+                    for (const btn of candidates) {
+                        if (this.isElementVisible(btn)) {
+                            postBtn = btn;
+                            break;
+                        }
+                    }
+                    if (postBtn) break;
+                }
+            }
+
+            // Strategy 4: Text content fallback within active comment box
+            if (!postBtn) {
+                const activeContainer = this.getActiveCommentContainer();
+                const allButtons = activeContainer
+                    ? activeContainer.querySelectorAll('button')
+                    : document.querySelectorAll('button');
                 for (const btn of allButtons) {
                     const text = btn.textContent?.toLowerCase().trim() || '';
-                    if ((text === 'post' || text === 'comment') && btn.offsetParent !== null) {
+                    if ((text === 'post' || text === 'comment') && this.isElementVisible(btn)) {
                         postBtn = btn;
                         break;
                     }
@@ -969,6 +1124,17 @@ class AutoPilotDriver {
             timestamp: Date.now()
         });
         await chrome.storage.local.set({ activityLog: log.slice(0, 100) });
+    }
+
+    async sendCommentFeedback(payload) {
+        try {
+            await chrome.runtime.sendMessage({
+                type: 'COMMENT_FEEDBACK',
+                ...payload
+            });
+        } catch (error) {
+            console.debug('[Echo Driver] Comment feedback skipped:', error);
+        }
     }
 
     // ==================== UI HELPERS ====================

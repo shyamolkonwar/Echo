@@ -16,21 +16,21 @@
     // State
     let isActive = false;
     let isAutoPilot = false;
-    let quickTone = 'professional';
+    let quickTone = 'human-connection';
     let processedPosts = new Set();
     let currentPostElement = null;
     let autoPilotDriver = null;
 
-    // Selectors (LinkedIn-specific - updated for 2024/2025)
+    // Selectors (LinkedIn-specific - updated for latest DOM)
     const SELECTORS = {
-        feedPost: 'div.feed-shared-update-v2',
+        feedPost: 'div.feed-shared-update-v2, div[data-urn^="urn:li:activity:"], div[data-urn*="activity"]',
         postUrn: 'data-urn',
-        authorName: '.update-components-actor__name span, .update-components-actor__title span[dir="ltr"], .feed-shared-actor__name',
-        postBody: '.feed-shared-update-v2__description .break-words, .feed-shared-inline-show-more-text, .feed-shared-text-view span[dir="ltr"], .update-components-text',
-        commentButton: 'button[aria-label*="omment"], button.comment-button, button[data-control-name="comment"]',
-        commentForm: 'form.comments-comment-box__form',
-        commentEditor: '.ql-editor, div[data-placeholder*="Add a comment"], div[contenteditable="true"][aria-label*="comment"], .editor-content[contenteditable="true"]',
-        postButton: 'button.comments-comment-box__submit-button--cr, button[class*="comments-comment-box__submit-button"], button.comments-comment-box__submit-button, button[data-control-name="submit_comment"], button[type="submit"][class*="comment"]'
+        authorName: '.update-components-actor__name span, .update-components-actor__title span[dir="ltr"], .feed-shared-actor__name, a[href*="/in/"] span[dir="ltr"]',
+        postBody: '[data-testid="expandable-text-box"], .feed-shared-update-v2__description .break-words, .feed-shared-inline-show-more-text, .feed-shared-text-view span[dir="ltr"], .update-components-text',
+        commentButton: 'button[aria-label*="comment" i], button.comment-button, button[data-control-name*="comment"]',
+        commentForm: 'form.comments-comment-box__form, div[componentkey^="commentBox-"], div[componentkey*="commentBox-"]',
+        commentEditor: '.tiptap.ProseMirror[contenteditable="true"], div[data-testid="ui-core-tiptap-text-editor-wrapper"] div[contenteditable="true"][role="textbox"], div[contenteditable="true"][role="textbox"][aria-label*="comment" i], .ql-editor[contenteditable="true"], div[data-placeholder*="comment" i][contenteditable="true"], .editor-content[contenteditable="true"]',
+        postButton: 'button.comments-comment-box__submit-button--cr, button[class*="comments-comment-box__submit-button"], button.comments-comment-box__submit-button, button[data-control-name="submit_comment"], button[type="submit"][class*="comment"], button[componentkey*="commentButtonSection"]'
     };
 
     // Initialize extension
@@ -40,7 +40,19 @@
         const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'quickTone', 'commentedPosts']);
         isActive = settings.isActive || false;
         isAutoPilot = settings.isAutoPilot || false;
-        quickTone = settings.quickTone || 'professional';
+        const legacyToneMap = {
+            professional: 'human-connection',
+            casual: 'human-connection',
+            supportive: 'emotional',
+            insightful: 'operational-insight',
+            enthusiastic: 'light-joke',
+            appreciative: 'emotional',
+            founder: 'human-connection',
+            operator: 'operational-insight',
+            contrarian: 'respectful-contrarian',
+            'pain-mirror': 'human-connection'
+        };
+        quickTone = legacyToneMap[settings.quickTone] || settings.quickTone || 'human-connection';
 
         // Load previously commented posts
         const commentedPostsArray = settings.commentedPosts || [];
@@ -144,17 +156,31 @@
             padding-right: 24px;
         `;
         toneSelect.innerHTML = `
-            <option value="professional">💼 Professional</option>
-            <option value="supportive">🤝 Supportive</option>
-            <option value="insightful">💡 Insightful</option>
-            <option value="enthusiastic">🎉 Enthusiastic</option>
-            <option value="appreciative">👏 Appreciative</option>
-            <option value="casual">😊 Casual</option>
+            <option value="human-connection">Human</option>
+            <option value="operational-insight">Ops Insight</option>
+            <option value="emotional">Emotional</option>
+            <option value="light-joke">Light Joke</option>
+            <option value="reflective">Reflective</option>
+            <option value="respectful-contrarian">Contrarian</option>
+            <option value="shared-scar">Shared Scar</option>
         `;
 
         // Load saved tone
         chrome.storage.local.get('quickTone').then(data => {
-            toneSelect.value = data.quickTone || 'professional';
+            const legacyToneMap = {
+                professional: 'human-connection',
+                casual: 'human-connection',
+                supportive: 'emotional',
+                insightful: 'operational-insight',
+                enthusiastic: 'light-joke',
+                appreciative: 'emotional',
+                founder: 'human-connection',
+                operator: 'operational-insight',
+                contrarian: 'respectful-contrarian',
+                'pain-mirror': 'human-connection'
+            };
+            const tone = legacyToneMap[data.quickTone] || data.quickTone || 'human-connection';
+            toneSelect.value = tone;
         });
 
         // Save tone on change
@@ -211,7 +237,7 @@
         container.appendChild(button);
 
         // Try to find the best place to insert the container
-        const buttonGroup = commentBox.querySelector('.comments-comment-box__button-group, .comments-comment-texteditor__toolbar');
+        const buttonGroup = commentBox.querySelector('.comments-comment-box__button-group, .comments-comment-texteditor__toolbar, [componentkey*="commentButtonSection"]');
         const editor = commentBox.querySelector(SELECTORS.commentEditor);
 
         if (buttonGroup) {
@@ -232,19 +258,28 @@
             button.classList.add('echo-manual-btn--loading');
             button.disabled = true;
 
-            const post = commentBox.closest(SELECTORS.feedPost);
-            if (!post) throw new Error('Could not find post element');
-
-            const postData = await extractPostData(post);
-            if (!postData.content || postData.content.length < 10) throw new Error('No valid content found');
+            const { post, postData } = await resolvePostDataForCommentBox(commentBox);
+            if (!postData.content || postData.content.length < 10) {
+                throw new Error('Could not detect post content from this comment box');
+            }
 
             const response = await chrome.runtime.sendMessage({ type: 'GENERATE_COMMENT', postData, quickTone });
             if (response.error) throw new Error(response.error);
 
             if (response.comment) {
-                const editor = commentBox.querySelector(SELECTORS.commentEditor);
+                let editor = commentBox.querySelector(SELECTORS.commentEditor);
+                if (!editor) {
+                    editor = findCommentEditor(post || null);
+                }
                 if (editor) {
                     insertCommentText(editor, response.comment);
+                    await sendCommentFeedback({
+                        action: 'used',
+                        platform: CURRENT_PLATFORM,
+                        postData,
+                        comment: response.comment,
+                        meta: response.meta || null
+                    });
                     showNotification('✨ Comment generated!');
                 }
             }
@@ -257,21 +292,253 @@
         }
     }
 
+    async function resolvePostDataForCommentBox(commentBox) {
+        const post = findPostForCommentBox(commentBox);
+
+        if (post) {
+            const postData = await extractPostData(post);
+            if (postData.content && postData.content.length >= 10) {
+                return { post, postData };
+            }
+        }
+
+        const inferredPostData = await inferPostDataFromCommentBox(commentBox);
+        return { post: post || null, postData: inferredPostData };
+    }
+
+    async function inferPostDataFromCommentBox(commentBox) {
+        const anchor = commentBox?.querySelector(SELECTORS.commentEditor) || commentBox;
+        const anchorRect = anchor?.getBoundingClientRect?.() || {
+            top: window.innerHeight / 2,
+            left: window.innerWidth / 2,
+            width: 0,
+            height: 0
+        };
+
+        const contentCandidates = Array.from(document.querySelectorAll(
+            '[data-testid="expandable-text-box"], .update-components-text, .feed-shared-inline-show-more-text, .feed-shared-text-view span[dir="ltr"]'
+        ));
+
+        let contentNode = getNearestElementByRect(contentCandidates, anchorRect, {
+            requireAbove: true,
+            maxVerticalGap: 1600,
+            minTextLength: 20
+        });
+
+        if (!contentNode) {
+            const broadCandidates = Array.from(document.querySelectorAll('p, div[dir="auto"], span[dir="ltr"]'));
+            contentNode = getNearestElementByRect(broadCandidates, anchorRect, {
+                requireAbove: true,
+                maxVerticalGap: 1600,
+                minTextLength: 50
+            });
+        }
+
+        const authorCandidates = Array.from(document.querySelectorAll(SELECTORS.authorName));
+        const authorNode = getNearestElementByRect(authorCandidates, anchorRect, {
+            requireAbove: true,
+            maxVerticalGap: 1400,
+            minTextLength: 1
+        });
+
+        const authorName = authorNode?.innerText?.trim()?.split('\n')?.[0] || 'LinkedIn Author';
+        const content = sanitizeContent(contentNode?.innerText || '');
+
+        return {
+            authorName,
+            content,
+            hasImage: false,
+            imageData: null
+        };
+    }
+
+    function getNearestElementByRect(elements, anchorRect, options = {}) {
+        const {
+            requireAbove = false,
+            maxVerticalGap = 1200,
+            minTextLength = 1
+        } = options;
+
+        let bestElement = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+        const anchorCenterX = anchorRect.left + (anchorRect.width / 2);
+
+        for (const el of elements) {
+            if (!el || !isElementVisible(el)) continue;
+
+            const text = (el.innerText || '').trim();
+            if (text.length < minTextLength) continue;
+
+            const rect = el.getBoundingClientRect();
+            const verticalDelta = anchorRect.top - rect.bottom;
+
+            if (requireAbove && verticalDelta < -120) {
+                continue;
+            }
+
+            const verticalGap = Math.abs(verticalDelta);
+            if (verticalGap > maxVerticalGap) continue;
+
+            const centerX = rect.left + (rect.width / 2);
+            const horizontalGap = Math.abs(centerX - anchorCenterX);
+            const score = verticalGap + (horizontalGap * 0.3);
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestElement = el;
+            }
+        }
+
+        return bestElement;
+    }
+
+    function findPostForCommentBox(commentBox) {
+        if (!commentBox) return null;
+
+        const directPost = commentBox.closest(SELECTORS.feedPost);
+        if (directPost) {
+            return directPost;
+        }
+
+        const urnContainer = commentBox.closest('[data-urn]');
+        if (urnContainer) {
+            return urnContainer;
+        }
+
+        const articleContainer = commentBox.closest('article');
+        if (articleContainer) {
+            const nestedPost = articleContainer.querySelector(SELECTORS.feedPost);
+            return nestedPost || articleContainer;
+        }
+
+        const anchor = commentBox.querySelector(SELECTORS.commentEditor) || commentBox;
+        const anchorRect = anchor.getBoundingClientRect();
+        const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+
+        const posts = Array.from(document.querySelectorAll(SELECTORS.feedPost))
+            .filter(post => isElementVisible(post));
+
+        if (!posts.length) {
+            return null;
+        }
+
+        let bestPost = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        for (const post of posts) {
+            const rect = post.getBoundingClientRect();
+            const postCenterX = rect.left + rect.width / 2;
+
+            // Comment boxes usually appear below their post.
+            const verticalGap = Math.abs(anchorRect.top - rect.bottom);
+            const horizontalGap = Math.abs(anchorCenterX - postCenterX);
+            const score = verticalGap + horizontalGap * 0.25;
+
+            const isReasonablyClose = anchorRect.top >= rect.top - 150 && anchorRect.top <= rect.bottom + 900;
+            if (!isReasonablyClose) {
+                continue;
+            }
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestPost = post;
+            }
+        }
+
+        if (bestPost) {
+            return bestPost;
+        }
+
+        // Last resort: pick the visible post nearest to current viewport center.
+        const viewportCenterY = window.innerHeight / 2;
+        let fallbackPost = null;
+        let fallbackDistance = Number.POSITIVE_INFINITY;
+
+        for (const post of posts) {
+            const rect = post.getBoundingClientRect();
+            const centerY = rect.top + rect.height / 2;
+            const distance = Math.abs(centerY - viewportCenterY);
+
+            if (distance < fallbackDistance) {
+                fallbackDistance = distance;
+                fallbackPost = post;
+            }
+        }
+
+        return fallbackPost;
+    }
+
     function removeAllManualButtons() {
         document.querySelectorAll('.echo-manual-btn').forEach(btn => btn.remove());
     }
 
     function insertCommentText(editor, comment) {
-        // Focus and insert using exec command
-        editor.focus();
-        const success = document.execCommand('insertText', false, comment);
+        writeCommentToEditor(editor, comment);
+    }
 
-        if (!success || !editor.innerText.includes(comment.substring(0, 10))) {
-            // Fallback to direct insertion
-            editor.innerHTML = `<p>${comment}</p>`;
-            editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: comment }));
-            editor.dispatchEvent(new Event('change', { bubbles: true }));
+    function writeCommentToEditor(editor, comment) {
+        if (!editor) return false;
+
+        editor.focus();
+        clearEditorContent(editor);
+
+        let inserted = false;
+        try {
+            inserted = document.execCommand('insertText', false, comment);
+        } catch (e) {
+            inserted = false;
         }
+
+        if (!inserted || !editor.innerText.includes(comment.substring(0, 10))) {
+            const lines = comment.split('\n');
+            editor.innerHTML = '';
+            lines.forEach(line => {
+                const paragraph = document.createElement('p');
+                if (line) {
+                    paragraph.textContent = line;
+                } else {
+                    paragraph.appendChild(document.createElement('br'));
+                }
+                editor.appendChild(paragraph);
+            });
+        }
+
+        triggerEditorUpdateEvents(editor, comment);
+        return editor.innerText.trim().length > 0;
+    }
+
+    function clearEditorContent(editor) {
+        try {
+            editor.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('delete', false, null);
+        } catch (e) {
+        }
+
+        if (editor.classList.contains('ProseMirror')) {
+            editor.innerHTML = '<p><br class="ProseMirror-trailingBreak"></p>';
+        } else if (!editor.innerText.trim()) {
+            editor.innerHTML = '';
+        }
+    }
+
+    function triggerEditorUpdateEvents(editor, comment) {
+        const events = [
+            new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertText',
+                data: comment
+            }),
+            new Event('change', { bubbles: true }),
+            new KeyboardEvent('keydown', { bubbles: true, key: ' ' }),
+            new KeyboardEvent('keyup', { bubbles: true, key: ' ' })
+        ];
+
+        events.forEach(event => editor.dispatchEvent(event));
+
+        editor.blur();
+        editor.focus();
     }
 
     // Handle messages from popup/background
@@ -643,19 +910,21 @@
         let commentBtn = null;
 
         for (const selector of buttonSelectors) {
-            commentBtn = post.querySelector(selector);
-            if (commentBtn) {
+            const btn = post.querySelector(selector);
+            if (btn && isElementVisible(btn) && !btn.closest('[componentkey*="commentBox-"]')) {
+                commentBtn = btn;
                 break;
             }
         }
 
-        // Fallback: find any button with "comment" in aria-label
+        // Fallback: find any visible button with comment label/text
         if (!commentBtn) {
             const allButtons = post.querySelectorAll('button');
             for (const btn of allButtons) {
                 const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
                 const text = btn.textContent?.toLowerCase() || '';
-                if (ariaLabel.includes('comment') || text.includes('comment')) {
+                if (!isElementVisible(btn)) continue;
+                if ((ariaLabel.includes('comment') || text.includes('comment')) && !btn.closest('[componentkey*="commentBox-"]')) {
                     commentBtn = btn;
                     break;
                 }
@@ -683,22 +952,9 @@
         const startTime = Date.now();
 
         while (Date.now() - startTime < timeout) {
-            // Check for comment editor
-            const editorSelectors = [
-                '.ql-editor',
-                'div[contenteditable="true"][role="textbox"]',
-                'div[data-placeholder*="comment"]',
-                '.comments-comment-box__form div[contenteditable="true"]',
-                '.comments-comment-texteditor div[contenteditable="true"]',
-                'div[aria-label*="comment"][contenteditable="true"]'
-            ];
-
-            for (const selector of editorSelectors) {
-                // Check in the entire document since comment box might be outside post
-                const editor = document.querySelector(selector);
-                if (editor && editor.offsetParent !== null) {
-                    return true;
-                }
+            const editor = findCommentEditor(post);
+            if (editor) {
+                return true;
             }
 
             await sleep(100);
@@ -734,20 +990,30 @@
     // Find the active comment editor (scoped to a specific post)
     function findCommentEditor(post = null) {
         const selectors = [
+            '.tiptap.ProseMirror[contenteditable="true"]',
+            'div[data-testid="ui-core-tiptap-text-editor-wrapper"] div[contenteditable="true"][role="textbox"]',
+            'div[contenteditable="true"][role="textbox"][aria-label*="comment" i]',
             '.ql-editor[contenteditable="true"]',
             '.comments-comment-box div[contenteditable="true"]',
             '.comments-comment-texteditor div[contenteditable="true"]',
-            'div[role="textbox"][contenteditable="true"]',
             'div[data-placeholder*="comment"][contenteditable="true"]'
         ];
 
-        // If post is provided, search within the post's container
-        const searchContext = post || document;
+        const contexts = [];
+        if (post) {
+            contexts.push(post);
+            if (post.parentElement) contexts.push(post.parentElement);
+        }
+        contexts.push(document);
 
-        for (const selector of selectors) {
-            const editor = searchContext.querySelector(selector);
-            if (editor && editor.offsetParent !== null) {
-                return editor;
+        for (const context of contexts) {
+            for (const selector of selectors) {
+                const editors = context.querySelectorAll(selector);
+                for (const editor of editors) {
+                    if (isElementVisible(editor)) {
+                        return editor;
+                    }
+                }
             }
         }
 
@@ -774,56 +1040,7 @@
         editor.focus();
         await sleep(100);
 
-        // Clear any placeholder content
-        const placeholderContent = ['<p><br></p>', '<br>', '<p></p>'];
-        if (placeholderContent.includes(editor.innerHTML.trim()) || !editor.innerText.trim()) {
-            editor.innerHTML = '';
-        }
-
-        // Try multiple insertion methods
-        let insertionSuccess = false;
-
-        // Method 1: execCommand (works with Quill)
-        try {
-            editor.focus();
-            await sleep(50);
-            insertionSuccess = document.execCommand('insertText', false, comment);
-        } catch (e) {
-        }
-
-        // Method 2: Direct innerHTML + events (if execCommand failed)
-        if (!insertionSuccess || !editor.innerText.includes(comment.substring(0, 10))) {
-            editor.innerHTML = `<p>${comment}</p>`;
-
-            // Dispatch input event
-            editor.dispatchEvent(new InputEvent('input', {
-                bubbles: true,
-                cancelable: true,
-                inputType: 'insertText',
-                data: comment
-            }));
-
-            // Also try 'change' event
-            editor.dispatchEvent(new Event('change', { bubbles: true }));
-
-            // And 'keyup' for good measure
-            editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
-        }
-
-        // Method 3: Simulate paste
-        if (!editor.innerText.includes(comment.substring(0, 10))) {
-            try {
-                const clipboardData = new DataTransfer();
-                clipboardData.setData('text/plain', comment);
-                const pasteEvent = new ClipboardEvent('paste', {
-                    bubbles: true,
-                    cancelable: true,
-                    clipboardData: clipboardData
-                });
-                editor.dispatchEvent(pasteEvent);
-            } catch (e) {
-            }
-        }
+        writeCommentToEditor(editor, comment);
 
         await sleep(200);
 
@@ -840,6 +1057,15 @@
             // Log activity
             await logActivity(post);
 
+            const postData = await extractPostData(post);
+            await sendCommentFeedback({
+                action: 'used',
+                platform: CURRENT_PLATFORM,
+                postData,
+                comment,
+                meta: null
+            });
+
             showNotification('Comment ready! Review and click Post.');
         } else {
             showNotification('Could not insert comment text', 'error');
@@ -849,7 +1075,9 @@
     // Show completion state (green border)
     function showCompletionState(post) {
         const form = document.querySelector('.comments-comment-box') ||
-            document.querySelector('.comments-comment-texteditor');
+            document.querySelector('.comments-comment-texteditor') ||
+            document.querySelector('div[componentkey^="commentBox-"]') ||
+            document.querySelector('div[componentkey*="commentBox-"]');
         if (!form) return;
 
         form.classList.add('echo-complete');
@@ -865,7 +1093,9 @@
         document.querySelectorAll('.echo-retry-btn').forEach(el => el.remove());
 
         const form = document.querySelector('.comments-comment-box') ||
-            document.querySelector('.comments-comment-texteditor');
+            document.querySelector('.comments-comment-texteditor') ||
+            document.querySelector('div[componentkey^="commentBox-"]') ||
+            document.querySelector('div[componentkey*="commentBox-"]');
         if (!form) return;
 
         const retryBtn = document.createElement('button');
@@ -956,6 +1186,17 @@
         chrome.runtime.sendMessage({ type: 'ACTIVITY_UPDATE' }).catch(() => { });
     }
 
+    async function sendCommentFeedback(payload) {
+        try {
+            await chrome.runtime.sendMessage({
+                type: 'COMMENT_FEEDBACK',
+                ...payload
+            });
+        } catch (error) {
+            console.debug('[Echo] Comment feedback skipped:', error);
+        }
+    }
+
     // Show notification
     function showNotification(message, type = 'info') {
         // Remove existing notification
@@ -978,6 +1219,14 @@
     function randomDelay(min, max) {
         const delay = Math.random() * (max - min) + min;
         return new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    function isElementVisible(element) {
+        if (!element) return false;
+        if (element.offsetParent !== null) return true;
+
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
     }
 
     // Utility: Sleep

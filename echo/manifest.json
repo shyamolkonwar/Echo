@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Echo - Multi-Platform Ghost Writer",
+    "name": "Rivtor Founder OS",
     "version": "2.0.0",
-    "description": "Your voice, echoed. AI-powered LinkedIn, Reddit & X comment assistant with vision support and autonomous verification.",
+    "description": "Founder-first comment copilot focused on high-signal operational writing with Azure DeepSeek-V4-Pro.",
     "permissions": [
         "activeTab",
         "storage",
@@ -16,9 +16,7 @@
         "*://*.reddit.com/*",
         "*://*.x.com/*",
         "*://*.twitter.com/*",
-        "*://api.openai.com/*",
-        "*://generativelanguage.googleapis.com/*",
-        "*://api.deepseek.com/*"
+        "*://rivtor-resource.services.ai.azure.com/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
