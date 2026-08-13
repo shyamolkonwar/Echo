@@ -1,19 +1,19 @@
-/* Echo Chrome Extension - Popup Styles */
-/* Branding: LinkedIn Blue + Emerald Green Accent */
+/* Echo - Popup Styles */
+/* Branding: ink, sand, ember */
 
 :root {
-  --primary: #0A66C2;
-  --primary-dark: #004182;
-  --accent: #10B981;
-  --accent-light: #34D399;
-  --background: #FFFFFF;
-  --background-alt: #F3F2EF;
-  --text-primary: #191919;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --border: #E0E0E0;
+  --primary: #1e3a5f;
+  --primary-dark: #13263f;
+  --accent: #d97706;
+  --accent-light: #f59e0b;
+  --background: #f6f1e9;
+  --background-alt: #ede5d9;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --border: #d8cdbb;
   --error: #DC2626;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow: 0 6px 20px rgba(31, 41, 55, 0.12);
 }
 
 * {
@@ -23,11 +23,11 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
   font-size: 14px;
   color: var(--text-primary);
   background: var(--background);
-  width: 320px;
+  width: 360px;
   min-height: 400px;
 }
 
@@ -43,8 +43,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--background);
+   border-bottom: 1px solid var(--border);
+   background: linear-gradient(135deg, #f6f1e9 0%, #efe4d2 100%);
 }
 
 .logo {
@@ -61,9 +61,11 @@ body {
 
 .logo-text {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--primary);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+  font-size: 15px;
 }
 
 .icon-btn {
@@ -117,27 +119,28 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: var(--background-alt);
+  background: linear-gradient(145deg, #f7efe4 0%, #f0e6d7 100%);
   border-radius: 12px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
 }
 
 /* Auto-Pilot Card */
 .autopilot-card {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05));
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(251, 191, 36, 0.08));
+  border: 1px solid rgba(217, 119, 6, 0.25);
 }
 
 .autopilot-card .status-indicator svg {
-  color: #8B5CF6;
+  color: #b45309;
 }
 
 .autopilot-card .status-text {
-  color: #8B5CF6;
+  color: #92400e;
 }
 
 .toggle-switch input:checked+.toggle-slider.autopilot-slider {
-  background: #8B5CF6;
+  background: #b45309;
 }
 
 /* Dashboard Button */
@@ -161,8 +164,8 @@ body {
 
 .dashboard-btn:hover {
   background: var(--background-alt);
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .dashboard-btn svg {
@@ -268,48 +271,6 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 10px;
-}
-
-/* Tone Selector */
-.tone-selector {
-  margin-bottom: 16px;
-}
-
-.tone-options {
-  display: flex;
-  gap: 8px;
-}
-
-.tone-option {
-  flex: 1;
-  cursor: pointer;
-}
-
-.tone-option input {
-  display: none;
-}
-
-.tone-label {
-  display: block;
-  text-align: center;
-  padding: 10px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--background-alt);
-  border: 2px solid transparent;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.tone-option input:checked+.tone-label {
-  color: var(--primary);
-  background: rgba(10, 102, 194, 0.1);
-  border-color: var(--primary);
-}
-
-.tone-option:hover .tone-label {
-  background: rgba(10, 102, 194, 0.05);
 }
 
 /* Activity Log */

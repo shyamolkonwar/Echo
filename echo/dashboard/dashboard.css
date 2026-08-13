@@ -1,19 +1,19 @@
-/* Echo Dashboard - Command Center Styles */
+/* Echo Dashboard Styles */
 
 :root {
-    --primary: #0A66C2;
-    --primary-dark: #004182;
-    --accent: #10B981;
-    --accent-light: #34D399;
-    --purple: #8B5CF6;
-    --orange: #F59E0B;
-    --background: #F8FAFC;
-    --surface: #FFFFFF;
-    --surface-alt: #F1F5F9;
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
-    --text-muted: #94A3B8;
-    --border: #E2E8F0;
+    --primary: #1e3a5f;
+    --primary-dark: #13263f;
+    --accent: #d97706;
+    --accent-light: #f59e0b;
+    --purple: #7c3aed;
+    --orange: #b45309;
+    --background: #f5efe4;
+    --surface: #fffdf8;
+    --surface-alt: #f1e8da;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
+    --border: #d8cdbb;
     --error: #DC2626;
     --sidebar-width: 240px;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -31,7 +31,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
     font-size: 14px;
     color: var(--text-primary);
     background: var(--background);

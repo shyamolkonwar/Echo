@@ -68,20 +68,6 @@
     function startManualButtonObserver() {
         console.log('[Echo X Driver] Starting manual button observer...');
 
-        // Inject styles
-        if (!document.querySelector('#echo-x-style')) {
-            const style = document.createElement('style');
-            style.id = 'echo-x-style';
-            // We only show controls in the toolbar now, so no need for complicated hide/show logic based on view
-            // But we keep the style block for any future needs or specific toolbar tweaks
-            style.textContent = `
-                .echo-x-controls-modal .echo-x-tone-select {
-                    display: block !important;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
         const checkAndInjectButtons = () => {
             // We NO LONGER inject into feed tweets.
             // We ONLY looking for Toolbars (Reply composition areas)
@@ -139,9 +125,8 @@
             min-width: 80px;
         `;
 
-        const { toneSelect, button } = createControls();
+        const button = createControls();
 
-        container.appendChild(toneSelect);
         container.appendChild(button);
 
         // Append to the END of the scrollable list
@@ -155,74 +140,11 @@
 
             const contextStart = modal || inlineContext;
 
-            await handleManualGenerate(button, contextStart, toneSelect.value);
+            await handleManualGenerate(button, contextStart);
         });
     }
 
     function createControls() {
-        // Create tone selector dropdown
-        const toneSelect = document.createElement('select');
-        toneSelect.className = 'echo-x-tone-select';
-        toneSelect.style.cssText = `
-            padding: 4px 8px;
-            background: transparent;
-            color: #71767b;
-            border: 1px solid rgba(29, 155, 240, 0.5);
-            border-radius: 16px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            appearance: none;
-            transition: all 0.2s;
-            display: block; /* Always visible in toolbar */
-        `;
-        toneSelect.innerHTML = `
-            <option value="human-connection">Human</option>
-            <option value="operational-insight">Ops Insight</option>
-            <option value="emotional">Emotional</option>
-            <option value="light-joke">Light Joke</option>
-            <option value="reflective">Reflective</option>
-            <option value="respectful-contrarian">Contrarian</option>
-            <option value="shared-scar">Shared Scar</option>
-        `;
-
-        // Hover effect for tone selector
-        toneSelect.addEventListener('mouseenter', () => {
-            toneSelect.style.backgroundColor = 'rgba(29, 155, 240, 0.1)';
-            toneSelect.style.color = '#1d9bf0';
-        });
-        toneSelect.addEventListener('mouseleave', () => {
-            toneSelect.style.backgroundColor = 'transparent';
-            toneSelect.style.color = '#71767b';
-        });
-
-        // Load saved tone
-        chrome.storage.local.get('xQuickTone').then(data => {
-            const legacyToneMap = {
-                analytical: 'operational-insight',
-                'in-the-trenches': 'shared-scar',
-                minimalist: 'human-connection',
-                founder: 'human-connection',
-                operator: 'operational-insight',
-                contrarian: 'respectful-contrarian'
-            };
-            const tone = legacyToneMap[data.xQuickTone] || data.xQuickTone || 'human-connection';
-            toneSelect.value = tone;
-        });
-
-        // Save tone on change
-        toneSelect.addEventListener('change', async () => {
-            const tone = toneSelect.value;
-            await chrome.storage.local.set({ xQuickTone: tone });
-
-            const { platforms } = await chrome.storage.local.get('platforms');
-            if (platforms && platforms.x) {
-                platforms.x.quickTone = tone;
-                await chrome.storage.local.set({ platforms });
-            }
-        });
-
         // Create generate button
         const button = document.createElement('button');
         button.className = 'echo-x-generate-btn';
@@ -259,10 +181,10 @@
             button.style.color = '#71767b';
         });
 
-        return { toneSelect, button };
+        return button;
     }
 
-    async function handleManualGenerate(button, contextElement, tone) {
+    async function handleManualGenerate(button, contextElement) {
         if (button.disabled) return;
 
         const originalHTML = button.innerHTML;
@@ -320,14 +242,13 @@
 
             if (!tweetData) throw new Error('Could not extract tweet content');
 
-            console.log('[Echo X Driver] Generating for:', tweetData.postId, 'Tone:', tone);
+            console.log('[Echo X Driver] Generating for:', tweetData.postId);
 
             // Request AI comment generation
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: tweetData,
-                platform: 'x',
-                quickTone: tone || 'human-connection'
+                platform: 'x'
             });
 
             if (response.error) throw new Error(response.error);
@@ -339,13 +260,6 @@
             // We can search globally for the focused textarea OR search relative to button.
 
             await insertReplyText(response.comment, button);
-            await sendCommentFeedback({
-                action: 'used',
-                platform: 'x',
-                postData: tweetData,
-                comment: response.comment,
-                meta: response.meta || null
-            });
 
             // Log activity
             await logActivity(tweetData);
@@ -473,16 +387,6 @@
         }
     }
 
-    async function sendCommentFeedback(payload) {
-        try {
-            await chrome.runtime.sendMessage({
-                type: 'COMMENT_FEEDBACK',
-                ...payload
-            });
-        } catch (error) {
-            console.debug('[Echo X Driver] Comment feedback skipped:', error);
-        }
-    }
 
     // ==================== HELPERS ====================
 

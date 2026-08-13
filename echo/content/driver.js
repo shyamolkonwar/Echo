@@ -649,21 +649,6 @@ class AutoPilotDriver {
             const mediaData = await this.extractMediaFromPost(post);
 
             // 5. Generate comment
-            const { quickTone } = await chrome.storage.local.get('quickTone');
-            const legacyToneMap = {
-                professional: 'human-connection',
-                casual: 'human-connection',
-                supportive: 'emotional',
-                insightful: 'operational-insight',
-                enthusiastic: 'light-joke',
-                appreciative: 'emotional',
-                founder: 'human-connection',
-                operator: 'operational-insight',
-                contrarian: 'respectful-contrarian',
-                'pain-mirror': 'human-connection'
-            };
-            const activeTone = legacyToneMap[quickTone] || quickTone || 'human-connection';
-
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: {
@@ -672,7 +657,7 @@ class AutoPilotDriver {
                     hasImage: mediaData.hasMedia,
                     imageData: mediaData.mediaData
                 },
-                quickTone: activeTone
+                platform: 'linkedin'
             });
 
             if (!response?.comment) {
@@ -716,17 +701,6 @@ class AutoPilotDriver {
                 verificationMethod: postResult.method
             });
 
-            await this.sendCommentFeedback({
-                action: postResult.posted && postResult.verified ? 'posted' : 'used',
-                platform: 'linkedin',
-                postData: {
-                    authorName,
-                    content,
-                    hasImage: mediaData.hasMedia
-                },
-                comment: response.comment,
-                meta: response.meta || null
-            });
 
             if (postResult.posted && postResult.verified) {
                 const visionTag = mediaData.hasMedia ? '🖼️ ' : '';
@@ -1126,16 +1100,6 @@ class AutoPilotDriver {
         await chrome.storage.local.set({ activityLog: log.slice(0, 100) });
     }
 
-    async sendCommentFeedback(payload) {
-        try {
-            await chrome.runtime.sendMessage({
-                type: 'COMMENT_FEEDBACK',
-                ...payload
-            });
-        } catch (error) {
-            console.debug('[Echo Driver] Comment feedback skipped:', error);
-        }
-    }
 
     // ==================== UI HELPERS ====================
     addProcessingIndicator(post) {

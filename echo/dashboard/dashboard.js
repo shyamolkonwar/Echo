@@ -1,4 +1,4 @@
-// Echo Dashboard - Command Center (No Supabase)
+// Echo Dashboard (No Supabase)
 // All data stored locally in chrome.storage.local
 
 class EchoDashboard {

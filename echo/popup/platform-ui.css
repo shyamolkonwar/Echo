@@ -4,8 +4,8 @@
     display: flex;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
+    border-bottom: 1px solid #d8cdbb;
+    background: #f1e8db;
 }
 
 .platform-icon {
@@ -28,9 +28,9 @@
 }
 
 .platform-icon.active {
-    border-color: #0066ff;
-    background: #eff6ff;
-    color: #0066ff;
+    border-color: #b45309;
+    background: #fff5e8;
+    color: #b45309;
 }
 
 .platform-icon:hover:not(.active) {
@@ -89,7 +89,7 @@
 /* ==================== POPUP FOOTER ==================== */
 
 .popup-footer {
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid #d8cdbb;
     padding-top: 12px;
     margin-top: auto;
 }
@@ -111,7 +111,7 @@
     display: flex;
     flex: 1;
     overflow: hidden;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #d8cdbb;
     border-radius: 12px;
     margin: 0 0 0 0;
 }
@@ -120,8 +120,8 @@
 
 .settings-sidebar {
     width: 60px;
-    background: #f9fafb;
-    border-right: 1px solid #e5e7eb;
+    background: #f1e8db;
+    border-right: 1px solid #d8cdbb;
     padding: 12px 8px;
     flex-shrink: 0;
     display: flex;
@@ -133,7 +133,7 @@
 .sidebar-divider {
     width: 32px;
     height: 1px;
-    background: #e5e7eb;
+    background: #d8cdbb;
     margin: 4px 0;
 }
 
@@ -227,12 +227,15 @@
 /* ==================== FILLED INPUTS ==================== */
 
 .filled-input {
-    background-color: #f3f4f6;
+    background-color: #f7f0e4;
     border: none;
     padding: 12px 16px;
     border-radius: 8px;
+    box-sizing: border-box;
     width: 100%;
+    min-height: 42px;
     font-size: 14px;
+    font-family: inherit;
     color: #111827;
     transition: all 0.2s;
 }
@@ -240,11 +243,27 @@
 .filled-input:focus {
     background-color: white;
     outline: none;
-    box-shadow: 0 0 0 2px #3b82f6;
+    box-shadow: 0 0 0 2px #b45309;
 }
 
 .filled-input::placeholder {
     color: #9ca3af;
+}
+
+textarea.filled-input {
+    min-height: 96px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.profile-textarea {
+    padding-top: 12px;
+}
+
+.compact-section-header {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e5dccd;
 }
 
 /* Input with Icon */
@@ -278,10 +297,10 @@
 }
 
 .voice-editor {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #d8cdbb;
     border-radius: 12px;
     padding: 16px;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
     font-size: 14px;
     line-height: 1.6;
     resize: none;
@@ -293,8 +312,8 @@
 
 .voice-editor:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+    border-color: #b45309;
+    box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12), inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* ==================== PROVIDER SELECT ==================== */
@@ -320,16 +339,26 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: white;
+    border: 1px solid #d8cdbb;
+    border-radius: 10px;
+    background: #fffaf0;
     transition: all 0.2s;
 }
 
+.provider-select.single-provider .provider-card {
+    border-color: #b45309;
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbf5 100%);
+    box-shadow: inset 0 0 0 1px rgba(180, 83, 9, 0.15);
+}
+
+.provider-card.static {
+    cursor: default;
+}
+
 .provider-option input:checked+.provider-card {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    box-shadow: 0 0 0 1px #3b82f6;
+    border-color: #b45309;
+    background: #fff7ed;
+    box-shadow: 0 0 0 1px #b45309;
 }
 
 .provider-option:hover .provider-card {
@@ -384,10 +413,10 @@
     -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    background: #3b82f6;
+    background: #b45309;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 2px 6px rgba(180, 83, 9, 0.35);
     transition: all 0.2s;
 }
 
@@ -420,8 +449,8 @@
 }
 
 .checkbox-label input:checked+.checkbox-custom {
-    background: #3b82f6;
-    border-color: #3b82f6;
+    background: #b45309;
+    border-color: #b45309;
 }
 
 .checkbox-label input:checked+.checkbox-custom::after {
@@ -444,7 +473,7 @@
     padding: 16px 0 0;
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(8px);
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid #d8cdbb;
     margin-top: auto;
 }
 
@@ -463,29 +492,6 @@
 .btn-secondary:hover {
     background: #f9fafb;
     border-color: #9ca3af;
-}
-
-/* ==================== TONE SELECTOR IN CONTEXT CARD ==================== */
-
-.context-card .tone-selector {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f3f4f6;
-}
-
-.context-card .tone-options {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.context-card .tone-option {
-    flex: 1;
-}
-
-.context-card .tone-label {
-    padding: 8px 12px;
-    font-size: 13px;
 }
 
 /* ==================== STATUS CARDS IN CONTEXT ==================== */
