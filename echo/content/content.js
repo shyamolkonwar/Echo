@@ -16,7 +16,6 @@
     // State
     let isActive = false;
     let isAutoPilot = false;
-    let quickTone = 'human-connection';
     let processedPosts = new Set();
     let currentPostElement = null;
     let autoPilotDriver = null;
@@ -37,22 +36,9 @@
     async function init() {
 
         // Load initial settings and commented posts history
-        const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'quickTone', 'commentedPosts']);
+        const settings = await chrome.storage.local.get(['isActive', 'isAutoPilot', 'commentedPosts']);
         isActive = settings.isActive || false;
         isAutoPilot = settings.isAutoPilot || false;
-        const legacyToneMap = {
-            professional: 'human-connection',
-            casual: 'human-connection',
-            supportive: 'emotional',
-            insightful: 'operational-insight',
-            enthusiastic: 'light-joke',
-            appreciative: 'emotional',
-            founder: 'human-connection',
-            operator: 'operational-insight',
-            contrarian: 'respectful-contrarian',
-            'pain-mirror': 'human-connection'
-        };
-        quickTone = legacyToneMap[settings.quickTone] || settings.quickTone || 'human-connection';
 
         // Load previously commented posts
         const commentedPostsArray = settings.commentedPosts || [];
@@ -126,7 +112,7 @@
         // Skip if autopilot is ON or button already exists
         if (isAutoPilot || commentBox.querySelector('.echo-manual-btn')) return;
 
-        // Create container for tone selector and button
+        // Create container for the generation button
         const container = document.createElement('div');
         container.className = 'echo-linkedin-controls';
         container.style.cssText = `
@@ -136,66 +122,6 @@
             margin: 4px 0;
         `;
 
-        // Create tone selector dropdown
-        const toneSelect = document.createElement('select');
-        toneSelect.className = 'echo-linkedin-tone-select';
-        toneSelect.style.cssText = `
-            padding: 5px 10px;
-            background: #f3f2ef;
-            color: #191919;
-            border: 1px solid #d9d9d9;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 24px;
-        `;
-        toneSelect.innerHTML = `
-            <option value="human-connection">Human</option>
-            <option value="operational-insight">Ops Insight</option>
-            <option value="emotional">Emotional</option>
-            <option value="light-joke">Light Joke</option>
-            <option value="reflective">Reflective</option>
-            <option value="respectful-contrarian">Contrarian</option>
-            <option value="shared-scar">Shared Scar</option>
-        `;
-
-        // Load saved tone
-        chrome.storage.local.get('quickTone').then(data => {
-            const legacyToneMap = {
-                professional: 'human-connection',
-                casual: 'human-connection',
-                supportive: 'emotional',
-                insightful: 'operational-insight',
-                enthusiastic: 'light-joke',
-                appreciative: 'emotional',
-                founder: 'human-connection',
-                operator: 'operational-insight',
-                contrarian: 'respectful-contrarian',
-                'pain-mirror': 'human-connection'
-            };
-            const tone = legacyToneMap[data.quickTone] || data.quickTone || 'human-connection';
-            toneSelect.value = tone;
-        });
-
-        // Save tone on change
-        toneSelect.addEventListener('change', async () => {
-            const tone = toneSelect.value;
-            quickTone = tone; // Update global variable
-            await chrome.storage.local.set({ quickTone: tone });
-
-            // Also update platforms storage
-            const { platforms } = await chrome.storage.local.get('platforms');
-            if (platforms && platforms.linkedin) {
-                platforms.linkedin.quickTone = tone;
-                await chrome.storage.local.set({ platforms });
-            }
-        });
 
         // Create generate button with inline styles for reliability
         const button = document.createElement('button');
@@ -229,11 +155,9 @@
             button.style.boxShadow = '0 2px 6px rgba(10, 102, 194, 0.3)';
         });
         button.addEventListener('click', async () => {
-            quickTone = toneSelect.value; // Use current selection
             await handleManualGenerate(commentBox);
         });
 
-        container.appendChild(toneSelect);
         container.appendChild(button);
 
         // Try to find the best place to insert the container
@@ -263,7 +187,11 @@
                 throw new Error('Could not detect post content from this comment box');
             }
 
-            const response = await chrome.runtime.sendMessage({ type: 'GENERATE_COMMENT', postData, quickTone });
+            const response = await chrome.runtime.sendMessage({
+                type: 'GENERATE_COMMENT',
+                postData,
+                platform: CURRENT_PLATFORM
+            });
             if (response.error) throw new Error(response.error);
 
             if (response.comment) {
@@ -273,13 +201,6 @@
                 }
                 if (editor) {
                     insertCommentText(editor, response.comment);
-                    await sendCommentFeedback({
-                        action: 'used',
-                        platform: CURRENT_PLATFORM,
-                        postData,
-                        comment: response.comment,
-                        meta: response.meta || null
-                    });
                     showNotification('✨ Comment generated!');
                 }
             }
@@ -557,9 +478,6 @@
                 }
                 break;
 
-            case 'UPDATE_TONE':
-                quickTone = message.quickTone;
-                break;
 
             case 'TOGGLE_AUTOPILOT':
                 isAutoPilot = message.isAutoPilot;
@@ -731,7 +649,6 @@
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData,
-                quickTone,
                 platform: CURRENT_PLATFORM
             });
 
@@ -1057,15 +974,6 @@
             // Log activity
             await logActivity(post);
 
-            const postData = await extractPostData(post);
-            await sendCommentFeedback({
-                action: 'used',
-                platform: CURRENT_PLATFORM,
-                postData,
-                comment,
-                meta: null
-            });
-
             showNotification('Comment ready! Review and click Post.');
         } else {
             showNotification('Could not insert comment text', 'error');
@@ -1131,7 +1039,6 @@
                 const response = await chrome.runtime.sendMessage({
                     type: 'GENERATE_COMMENT',
                     postData,
-                    quickTone,
                     retry: true
                 });
 
@@ -1186,16 +1093,6 @@
         chrome.runtime.sendMessage({ type: 'ACTIVITY_UPDATE' }).catch(() => { });
     }
 
-    async function sendCommentFeedback(payload) {
-        try {
-            await chrome.runtime.sendMessage({
-                type: 'COMMENT_FEEDBACK',
-                ...payload
-            });
-        } catch (error) {
-            console.debug('[Echo] Comment feedback skipped:', error);
-        }
-    }
 
     // Show notification
     function showNotification(message, type = 'info') {

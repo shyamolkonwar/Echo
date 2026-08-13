@@ -123,7 +123,7 @@
     function injectManualGenerateButton(composer) {
         if (document.querySelector('.echo-reddit-generate-btn')) return;
 
-        // Create container for button and tone selector
+        // Create container for the generation button
         const container = document.createElement('div');
         container.className = 'echo-reddit-controls';
         container.style.cssText = `
@@ -133,56 +133,6 @@
             margin: 8px 0;
         `;
 
-        // Create tone selector dropdown
-        const toneSelect = document.createElement('select');
-        toneSelect.className = 'echo-reddit-tone-select';
-        toneSelect.style.cssText = `
-            padding: 8px 12px;
-            background: #1a1a1b;
-            color: white;
-            border: 1px solid #343536;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            padding-right: 30px;
-        `;
-        toneSelect.innerHTML = `
-            <option value="founder">Founder Trenches</option>
-            <option value="operator">Operator Systems</option>
-            <option value="contrarian">Founder Contrarian</option>
-        `;
-
-        // Load saved tone
-        chrome.storage.local.get('redditQuickTone').then(data => {
-            const legacyToneMap = {
-                sarcastic: 'contrarian',
-                witty: 'founder',
-                cynical: 'contrarian',
-                informative: 'operator',
-                supportive: 'founder'
-            };
-            const tone = legacyToneMap[data.redditQuickTone] || data.redditQuickTone || 'founder';
-            toneSelect.value = tone;
-        });
-
-        // Save tone on change
-        toneSelect.addEventListener('change', async () => {
-            const tone = toneSelect.value;
-            await chrome.storage.local.set({ redditQuickTone: tone });
-
-            // Also update platforms storage
-            const { platforms } = await chrome.storage.local.get('platforms');
-            if (platforms && platforms.reddit) {
-                platforms.reddit.quickTone = tone;
-                await chrome.storage.local.set({ platforms });
-            }
-        });
 
         // Create generate button
         const button = document.createElement('button');
@@ -223,9 +173,8 @@
             button.style.boxShadow = '0 2px 8px rgba(255, 69, 0, 0.3)';
         });
 
-        button.addEventListener('click', async () => await handleManualGenerate(button, toneSelect.value));
+        button.addEventListener('click', async () => await handleManualGenerate(button));
 
-        container.appendChild(toneSelect);
         container.appendChild(button);
 
         const composerParent = composer.parentElement;
@@ -238,10 +187,10 @@
             }
         }
 
-        console.log('[Echo Reddit Driver] Manual generate button with tone selector injected');
+        console.log('[Echo Reddit Driver] Manual generate button injected');
     }
 
-    async function handleManualGenerate(button, tone) {
+    async function handleManualGenerate(button) {
         if (button.disabled) return;
 
         try {
@@ -272,14 +221,13 @@
                 throw new Error('Could not extract post content');
             }
 
-            console.log('[Echo Reddit Driver] Manual generate for post:', postData.postId, 'with tone:', tone);
+            console.log('[Echo Reddit Driver] Manual generate for post:', postData.postId);
 
-            // Request AI comment generation with tone
+            // Request AI comment generation
             const response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
                 postData: postData,
-                platform: 'reddit',
-                quickTone: tone || 'founder'
+                platform: 'reddit'
             });
 
             if (response.error) throw new Error(response.error);
@@ -293,13 +241,6 @@
 
             // Insert the comment
             await insertCommentIntoEditor(commentBox, response.comment);
-            await sendCommentFeedback({
-                action: 'used',
-                platform: 'reddit',
-                postData,
-                comment: response.comment,
-                meta: response.meta || null
-            });
 
             showNotification('✨ Comment generated! Review and post when ready.');
 
@@ -420,16 +361,6 @@
         element.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    async function sendCommentFeedback(payload) {
-        try {
-            await chrome.runtime.sendMessage({
-                type: 'COMMENT_FEEDBACK',
-                ...payload
-            });
-        } catch (error) {
-            console.debug('[Echo Reddit Driver] Comment feedback skipped:', error);
-        }
-    }
 
     // ==================== FEED OBSERVER (Semi-Auto) ====================
 

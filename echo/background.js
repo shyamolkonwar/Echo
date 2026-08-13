@@ -1,21 +1,11 @@
-// Rivtor Founder OS - Background Service Worker
-// Azure AI founder comment agent
+// Echo - Background Service Worker
+// One request per generated comment.
 
-import {
-    COMMENT_AGENT_DEFAULTS,
-    generateFounderComment,
-    getInstallStorageDefaults,
-    recordCommentFeedback
-} from './lib/comment_agent.js';
+import { generateComment } from './lib/comment_generation.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GENERATE_COMMENT') {
         handleGenerateComment(message, sendResponse);
-        return true;
-    }
-
-    if (message.type === 'COMMENT_FEEDBACK') {
-        handleCommentFeedback(message, sendResponse);
         return true;
     }
 
@@ -29,46 +19,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleGenerateComment(message, sendResponse) {
     try {
-        const { postData, quickTone, platform } = message;
+        const { postData, platform } = message;
 
         const settings = await chrome.storage.local.get([
             'apiKey',
-            'apiProvider',
+            'apiFormat',
+            'apiEndpoint',
+            'apiModel',
+            'userProfile',
             'responseLength',
-            'platforms',
-            'azureBaseUrl',
-            'azureModel',
-            'selectedSkill'
+            'platforms'
         ]);
 
         const apiKey = settings.apiKey?.trim();
         if (!apiKey) {
-            sendResponse({ error: 'No Azure API key configured. Open settings and add your Azure key.' });
+            sendResponse({ error: 'No API key configured. Open settings and add your key.' });
             return;
         }
 
-        const result = await generateFounderComment({
+        if (!settings.apiEndpoint?.trim()) {
+            sendResponse({ error: 'No endpoint configured. Open settings and add the complete API endpoint URL.' });
+            return;
+        }
+
+        const activePlatform = platform || 'linkedin';
+        const responseLength = settings.platforms?.[activePlatform]?.responseLength
+            || settings.responseLength
+            || 2;
+
+        const comment = await generateComment({
             apiKey,
+            apiType: settings.apiFormat || 'openai-compatible',
+            endpointUrl: settings.apiEndpoint,
+            model: settings.apiModel || '',
             postData,
-            quickTone,
-            settings,
-            platform: platform || 'linkedin'
+            userProfile: settings.userProfile || {},
+            responseLength,
+            platform: activePlatform
         });
 
-        sendResponse(result);
+        sendResponse({ comment });
     } catch (error) {
-        console.error('[Rivtor Background] Error:', error);
-        sendResponse({ error: error.message || 'Failed to generate founder comment' });
-    }
-}
-
-async function handleCommentFeedback(message, sendResponse) {
-    try {
-        await recordCommentFeedback(message);
-        sendResponse({ ok: true });
-    } catch (error) {
-        console.error('[Rivtor Background] Feedback error:', error);
-        sendResponse({ error: error.message || 'Failed to save comment feedback' });
+        console.error('[Echo Background] Error:', error);
+        sendResponse({ error: error.message || 'Failed to generate comment' });
     }
 }
 
@@ -77,16 +70,13 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.storage.local.set({
             isActive: false,
             isAutoPilot: false,
-            quickTone: 'human-connection',
             responseLength: 2,
             delayTimer: 2,
             activityLog: [],
             watchedCreators: [],
-            userTone: '',
-            voiceDna: '',
-            ...getInstallStorageDefaults(),
-            azureBaseUrl: COMMENT_AGENT_DEFAULTS.baseUrl,
-            azureModel: COMMENT_AGENT_DEFAULTS.model
+            apiFormat: 'openai-compatible',
+            apiEndpoint: '',
+            apiModel: ''
         });
     }
 
