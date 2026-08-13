@@ -157,6 +157,9 @@
                     <button class="nav-item active" data-section="api" title="AI Brain">
                         <img src="../assets/images/ai.png" alt="AI" class="nav-icon-img">
                     </button>
+                    <button class="nav-item" data-section="profile" title="Global Profile">
+                        <span class="nav-letter">P</span>
+                    </button>
                     <button class="nav-item" data-section="system" title="System">
                         <img src="../assets/images/setting.png" alt="Settings" class="nav-icon-img">
                     </button>
@@ -216,11 +219,15 @@
                         </div>
                     </div>
 
-                    <!-- LinkedIn Section -->
-                    <div class="settings-section" data-section="linkedin">
+                    <!-- Global Profile Section -->
+                    <div class="settings-section" data-section="profile">
                         <div class="section-header">
-                            <h3>Profile Engine</h3>
-                            <p class="section-desc">Feed Echo everything it should know about the person or company behind the account</p>
+                            <h3>Global Profile</h3>
+                            <p class="section-desc">Saved once and used across LinkedIn, Reddit, and X</p>
+                        </div>
+                        <div class="profile-summary-card">
+                            <strong>One knowledge base for every platform.</strong>
+                            <span>Tell Echo who is speaking, what they believe, how they write, and what it should never sound like.</span>
                         </div>
                         <div class="form-group">
                             <label for="account-type">Account Type</label>
@@ -269,9 +276,13 @@
                             <textarea id="profile-voice-examples" class="filled-input profile-textarea" rows="4"
                                 placeholder="Paste a few representative comments or short writing samples. Echo will learn the rhythm and decision-making from them."></textarea>
                         </div>
-                        <div class="section-header compact-section-header">
+                    </div>
+
+                    <!-- LinkedIn Section -->
+                    <div class="settings-section" data-section="linkedin">
+                        <div class="section-header">
                             <h3>LinkedIn Controls</h3>
-                            <p class="section-desc">Fine-tune how LinkedIn comments are generated</p>
+                            <p class="section-desc">Platform controls only. Global profile knowledge applies here automatically.</p>
                         </div>
                         <div class="form-group">
                             <label>Response Length</label>
@@ -295,7 +306,7 @@
                     <div class="settings-section" data-section="reddit">
                         <div class="section-header">
                             <h3>Reddit Controls</h3>
-                            <p class="section-desc">Choose where the builder-first comment button appears</p>
+                            <p class="section-desc">Choose where the comment button appears. Global profile knowledge applies here automatically.</p>
                         </div>
                         <div class="form-group">
                             <label for="subreddit-filter">Subreddit Filter</label>
@@ -394,6 +405,26 @@
                             placeholder="Complete endpoint URL">
                         <input type="text" id="onboard-api-model" class="filled-input"
                             placeholder="Model / deployment (optional)">
+                    </div>
+                    <button class="btn-primary" data-next="3">Continue</button>
+                </div>
+
+                <div class="onboarding-step" data-step="3" style="display: none;">
+                    <h3>Save global profile</h3>
+                    <p class="helper-text">This knowledge is stored once and used across all platforms: LinkedIn, Reddit, and X.</p>
+                    <div class="form-group onboarding-profile-form">
+                        <select id="onboard-account-type" class="filled-input">
+                            <option value="personal">Personal account</option>
+                            <option value="company">Company account</option>
+                        </select>
+                        <textarea id="onboard-profile-identity" class="filled-input profile-textarea" rows="3"
+                            placeholder="Who is writing? Person, role, company, product, audience, or context."></textarea>
+                        <textarea id="onboard-profile-narrative" class="filled-input profile-textarea" rows="3"
+                            placeholder="Narrative or point of view that should guide comments."></textarea>
+                        <textarea id="onboard-profile-writing-style" class="filled-input profile-textarea" rows="3"
+                            placeholder="Writing style: sentence rhythm, punctuation, words to avoid, natural voice."></textarea>
+                        <textarea id="onboard-profile-comment-strategy" class="filled-input profile-textarea" rows="3"
+                            placeholder="How should comments add value? Tactical advice, sharp question, operator nuance, contrarian view, etc."></textarea>
                     </div>
                     <button class="btn-primary" id="complete-onboarding">Start Echo</button>
                 </div>

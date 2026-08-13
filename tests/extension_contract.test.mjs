@@ -58,13 +58,18 @@ test('all app surfaces use the Echo name', async () => {
     assert.doesNotMatch(combined, /Rivtor|Founder/i);
 });
 
-test('profile engine collects rich writing context for any account type', async () => {
+test('global profile engine collects rich writing context for every platform', async () => {
     const [popup, popupScript] = await Promise.all([
         read('echo/popup/popup.html'),
         read('echo/popup/popup.js')
     ]);
     const combined = `${popup}\n${popupScript}`;
+    const profileSectionIndex = popup.indexOf('data-section="profile"');
+    const linkedinSectionIndex = popup.indexOf('data-section="linkedin"');
 
+    assert.ok(profileSectionIndex > -1, 'settings need a global profile section');
+    assert.ok(linkedinSectionIndex > -1, 'settings still need LinkedIn controls');
+    assert.ok(profileSectionIndex < linkedinSectionIndex, 'global profile must not live inside LinkedIn controls');
     assert.match(combined, /id="account-type"/);
     assert.match(combined, /id="profile-identity"/);
     assert.match(combined, /id="profile-narrative"/);
@@ -75,6 +80,25 @@ test('profile engine collects rich writing context for any account type', async 
     assert.match(combined, /id="profile-banned-phrases"/);
     assert.match(combined, /id="profile-voice-examples"/);
     assert.match(combined, /accountProfile|userProfile/);
+    assert.doesNotMatch(popup.slice(linkedinSectionIndex, popup.indexOf('data-section="reddit"')), /profile-identity|profile-narrative|Profile Engine/);
+});
+
+test('onboarding captures and saves global knowledge for every platform', async () => {
+    const [popup, popupScript] = await Promise.all([
+        read('echo/popup/popup.html'),
+        read('echo/popup/popup.js')
+    ]);
+    const combined = `${popup}\n${popupScript}`;
+
+    assert.match(popup, /Save global profile/i);
+    assert.match(popup, /all platforms/i);
+    assert.match(combined, /id="onboard-account-type"/);
+    assert.match(combined, /id="onboard-profile-identity"/);
+    assert.match(combined, /id="onboard-profile-narrative"/);
+    assert.match(combined, /id="onboard-profile-writing-style"/);
+    assert.match(combined, /id="onboard-profile-comment-strategy"/);
+    assert.match(combined, /onboardProfileIdentity/);
+    assert.match(combined, /userProfile:\s*\{/);
 });
 
 test('X profile analysis feature is completely removed', async () => {
