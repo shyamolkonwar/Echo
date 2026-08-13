@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Rivtor Founder OS",
+    "name": "Echo",
     "version": "2.0.0",
-    "description": "Founder-first comment copilot focused on high-signal operational writing with Azure DeepSeek-V4-Pro.",
+    "description": "Builder-first comment copilot for LinkedIn, Reddit, and X with configurable AI endpoints.",
     "permissions": [
         "activeTab",
         "storage",
@@ -15,8 +15,11 @@
         "*://www.linkedin.com/*",
         "*://*.reddit.com/*",
         "*://*.x.com/*",
-        "*://*.twitter.com/*",
-        "*://rivtor-resource.services.ai.azure.com/*"
+        "*://*.twitter.com/*"
+    ],
+    "optional_host_permissions": [
+        "https://*/*",
+        "http://*/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
@@ -83,7 +86,6 @@
                 "lib/html2canvas.min.js",
                 "content/platform_router.js",
                 "content/x_logic.js",
-                "content/x_analytics.js",
                 "content/x_driver.js",
                 "content/driver.js",
                 "content/content.js"
