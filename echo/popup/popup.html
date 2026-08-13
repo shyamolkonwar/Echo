@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rivtor Founder OS</title>
+    <title>Echo</title>
     <link rel="stylesheet" href="popup.css">
     <link rel="stylesheet" href="platform-ui.css">
 </head>
@@ -19,7 +19,7 @@
                         d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                     <path d="M8 12h.01M12 12h.01M16 12h.01" stroke-linecap="round" />
                 </svg>
-                <span class="logo-text">Rivtor OS</span>
+                <span class="logo-text">Echo</span>
             </div>
             <button id="settings-btn" class="icon-btn" title="Settings">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -56,7 +56,7 @@
             <!-- LinkedIn Context Card -->
             <div class="context-card" data-platform="linkedin">
                 <div class="context-header">
-                    <span class="context-label">Active: LinkedIn Founder Mode</span>
+                    <span class="context-label">Active: LinkedIn</span>
                 </div>
 
                 <div class="status-card">
@@ -84,39 +84,6 @@
                     </label>
                 </div>
 
-                <div class="tone-selector">
-                    <span class="section-label">Comment Type</span>
-                    <div class="tone-options">
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="human-connection" checked>
-                            <span class="tone-label">Human</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="operational-insight">
-                            <span class="tone-label">Ops Insight</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="emotional">
-                            <span class="tone-label">Emotional</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="light-joke">
-                            <span class="tone-label">Light Joke</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="reflective">
-                            <span class="tone-label">Reflective</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="respectful-contrarian">
-                            <span class="tone-label">Contrarian</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="quick-tone" value="shared-scar">
-                            <span class="tone-label">Shared Scar</span>
-                        </label>
-                    </div>
-                </div>
             </div>
 
             <!-- Reddit Context Card -->
@@ -136,19 +103,6 @@
                     </label>
                 </div>
 
-                <div class="tone-selector">
-                    <span class="section-label">Current Tone</span>
-                    <div class="tone-options">
-                        <label class="tone-option">
-                            <input type="radio" name="reddit-tone" value="founder" checked>
-                            <span class="tone-label">Founder</span>
-                        </label>
-                        <label class="tone-option">
-                            <input type="radio" name="reddit-tone" value="operator">
-                            <span class="tone-label">Operator</span>
-                        </label>
-                    </div>
-                </div>
             </div> <!-- End Reddit Context Card -->
 
             <!-- X Context Card -->
@@ -158,10 +112,6 @@
                 </div>
 
                 <div class="status-card" style="display: none;">
-                    <!-- Hidden as per user request -->
-                </div>
-
-                <div class="tone-selector" style="display: none;">
                     <!-- Hidden as per user request -->
                 </div>
 
@@ -184,7 +134,7 @@
                 <div class="activity-section">
                     <span class="section-label">Recent Activity</span>
                     <div class="activity-log" id="activity-log">
-                        <div class="activity-empty">No activity yet. Enable Founder Mode and browse LinkedIn.</div>
+                        <div class="activity-empty">No activity yet. Enable Echo and browse LinkedIn.</div>
                     </div>
                 </div>
             </div>
@@ -198,7 +148,7 @@
                         <path d="M19 12H5M12 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <h2>Founder Settings</h2>
+                <h2>Echo Settings</h2>
             </div>
 
             <div class="settings-container">
@@ -227,15 +177,15 @@
                     <!-- API & Brain Section -->
                     <div class="settings-section active" data-section="api">
                         <div class="section-header">
-                            <h3>Azure Founder Brain</h3>
-                            <p class="section-desc">Single-model setup optimized for founder-style comments</p>
+                            <h3>AI Connection</h3>
+                            <p class="section-desc">Connect any supported endpoint without changing the extension code</p>
                         </div>
                         <div class="form-group">
-                            <label for="api-key">Azure API Key</label>
+                            <label for="api-key">API Key</label>
                             <div class="input-with-icon">
                                 <span class="input-icon">🔑</span>
                                 <input type="password" id="api-key" class="filled-input"
-                                    placeholder="Paste your Azure API key..." autocomplete="off">
+                                    placeholder="Paste your API key..." autocomplete="off">
                                 <button id="toggle-key-visibility" class="icon-btn small" type="button">
                                     <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2">
@@ -246,41 +196,82 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Model Stack</label>
-                            <div class="provider-select single-provider">
-                                <span class="provider-card static">
-                                    <span class="provider-name">Azure OpenAI</span>
-                                    <span class="provider-model">DeepSeek-V4-Pro</span>
-                                </span>
-                            </div>
+                            <label for="api-format">API Format</label>
+                            <select id="api-format" class="filled-input">
+                                <option value="openai-compatible">OpenAI / compatible</option>
+                                <option value="azure-openai">Azure (api-key)</option>
+                                <option value="gemini">Gemini</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="azure-base-url">Endpoint</label>
-                            <input type="text" id="azure-base-url" class="filled-input" readonly>
+                            <label for="api-endpoint">Complete Endpoint URL</label>
+                            <input type="text" id="api-endpoint" class="filled-input" inputmode="url"
+                                placeholder="https://&lt;resource&gt;.services.ai.azure.com/models/chat/completions?api-version=...">
+                            <p class="helper-text">Paste the full request URL, including its path and API version.</p>
                         </div>
                         <div class="form-group">
-                            <label for="azure-model">Model</label>
-                            <input type="text" id="azure-model" class="filled-input" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label for="comment-skill">Agent Skill</label>
-                            <select id="comment-skill" class="filled-input"></select>
-                            <p id="comment-skill-description" class="helper-text">Founder Operator Core keeps the agent grounded in execution reality and founder voice.</p>
+                            <label for="api-model">Model / Deployment</label>
+                            <input type="text" id="api-model" class="filled-input"
+                                placeholder="Optional model name">
                         </div>
                     </div>
 
                     <!-- LinkedIn Section -->
                     <div class="settings-section" data-section="linkedin">
                         <div class="section-header">
-                            <h3>Founder Persona</h3>
-                            <p class="section-desc">Calibrate your founder voice for high-signal comments</p>
+                            <h3>Profile Engine</h3>
+                            <p class="section-desc">Feed Echo everything it should know about the person or company behind the account</p>
                         </div>
                         <div class="form-group">
-                            <label for="linkedin-voice">My Voice</label>
-                            <div class="voice-editor-wrapper">
-                                <textarea id="linkedin-voice" class="voice-editor" rows="5"
-                                    placeholder="I write like a founder in the trenches. I focus on bottlenecks, ownership, continuity, and execution pain. I avoid polished creator energy."></textarea>
-                            </div>
+                            <label for="account-type">Account Type</label>
+                            <select id="account-type" class="filled-input">
+                                <option value="personal">Personal</option>
+                                <option value="company">Company</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-identity">Identity / Context</label>
+                            <textarea id="profile-identity" class="filled-input profile-textarea" rows="3"
+                                placeholder="Who is writing? Role, company context, product context, audience context, and what gives this account the right to speak."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-narrative">Narrative</label>
+                            <textarea id="profile-narrative" class="filled-input profile-textarea" rows="3"
+                                placeholder="What should repeatedly come through in comments? What do you want to be known for?"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-communication-style">Communication Style</label>
+                            <textarea id="profile-communication-style" class="filled-input profile-textarea" rows="3"
+                                placeholder="Direct or warm? Calm or provocative? Technical or broad? Short, sharp guidance works best."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-writing-style">Writing Style</label>
+                            <textarea id="profile-writing-style" class="filled-input profile-textarea" rows="3"
+                                placeholder="Sentence rhythm, punctuation rules, vocabulary level, formatting habits, and what natural writing looks like for this account."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-comment-strategy">Comment Strategy</label>
+                            <textarea id="profile-comment-strategy" class="filled-input profile-textarea" rows="3"
+                                placeholder="How should comments add value? Examples: add one tactical layer, challenge weak assumptions, ask sharp questions, bring operator nuance."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-signature-phrases">Signature Phrases</label>
+                            <textarea id="profile-signature-phrases" class="filled-input profile-textarea" rows="2"
+                                placeholder="Phrases this account naturally uses. Separate with commas or semicolons."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-banned-phrases">Never Use</label>
+                            <textarea id="profile-banned-phrases" class="filled-input profile-textarea" rows="2"
+                                placeholder="Words, phrases, claims, or tones to avoid. Examples: no em dashes, no hype, no 'great post', no thought leadership fluff."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-voice-examples">Voice Examples</label>
+                            <textarea id="profile-voice-examples" class="filled-input profile-textarea" rows="4"
+                                placeholder="Paste a few representative comments or short writing samples. Echo will learn the rhythm and decision-making from them."></textarea>
+                        </div>
+                        <div class="section-header compact-section-header">
+                            <h3>LinkedIn Controls</h3>
+                            <p class="section-desc">Fine-tune how LinkedIn comments are generated</p>
                         </div>
                         <div class="form-group">
                             <label>Response Length</label>
@@ -303,15 +294,8 @@
                     <!-- Reddit Section -->
                     <div class="settings-section" data-section="reddit">
                         <div class="section-header">
-                            <h3>Reddit Persona</h3>
-                            <p class="section-desc">Define how you sound on Reddit</p>
-                        </div>
-                        <div class="form-group">
-                            <label for="reddit-voice">My Voice</label>
-                            <div class="voice-editor-wrapper">
-                                <textarea id="reddit-voice" class="voice-editor" rows="5"
-                                    placeholder="I'm a cynical dev who hates startup buzzwords. Keep it short and snarky..."></textarea>
-                            </div>
+                            <h3>Reddit Controls</h3>
+                            <p class="section-desc">Choose where the builder-first comment button appears</p>
                         </div>
                         <div class="form-group">
                             <label for="subreddit-filter">Subreddit Filter</label>
@@ -336,15 +320,8 @@
                     <!-- X (Twitter) Section -->
                     <div class="settings-section" data-section="x">
                         <div class="section-header">
-                            <h3>X (Twitter) Persona</h3>
-                            <p class="section-desc">Define how you sound on X</p>
-                        </div>
-                        <div class="form-group">
-                            <label for="x-voice">My Voice</label>
-                            <div class="voice-editor-wrapper">
-                                <textarea id="x-voice" class="voice-editor" rows="5"
-                                    placeholder="I'm a chaotic shitposter who never capitalizes. Keep it under 100 chars..."></textarea>
-                            </div>
+                            <h3>X Controls</h3>
+                            <p class="section-desc">Keep replies useful, direct, and within the platform limit</p>
                         </div>
                         <div class="form-group">
                             <label for="x-blacklist">Blacklisted Words</label>
@@ -358,7 +335,7 @@
                     <div class="settings-section" data-section="system">
                         <div class="section-header">
                             <h3>System Settings</h3>
-                            <p class="section-desc">Configure Founder OS behavior</p>
+                            <p class="section-desc">Configure Echo behavior</p>
                         </div>
                         <div class="form-group">
                             <label>Typing Speed</label>
@@ -397,26 +374,28 @@
                                 d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                         </svg>
                     </div>
-                    <h2>Welcome to Rivtor Founder OS</h2>
-                    <p>Let's calibrate your founder voice in 2 quick steps.</p>
+                    <h2>Welcome to Echo</h2>
+                    <p>Connect your AI endpoint once, then generate human comments in one request.</p>
                     <button class="btn-primary" data-next="2">Get Started</button>
                 </div>
 
                 <div class="onboarding-step" data-step="2" style="display: none;">
-                    <h3>Step 1: Enter your API Key</h3>
-                    <p class="helper-text">Use your Azure AI key for DeepSeek-V4-Pro generation.</p>
+                    <h3>Connect your AI endpoint</h3>
+                    <p class="helper-text">You can change the API format, endpoint, or model later in Settings.</p>
                     <div class="form-group">
-                        <input type="password" id="onboard-api-key" placeholder="Paste your API key here...">
+                        <select id="onboard-api-format" class="filled-input">
+                            <option value="openai-compatible">OpenAI / compatible</option>
+                            <option value="azure-openai">Azure (api-key)</option>
+                            <option value="gemini">Gemini</option>
+                        </select>
+                        <input type="password" id="onboard-api-key" class="filled-input"
+                            placeholder="Paste your API key here...">
+                        <input type="text" id="onboard-api-endpoint" class="filled-input" inputmode="url"
+                            placeholder="Complete endpoint URL">
+                        <input type="text" id="onboard-api-model" class="filled-input"
+                            placeholder="Model / deployment (optional)">
                     </div>
-                    <button class="btn-primary" data-next="3">Continue</button>
-                </div>
-
-                <div class="onboarding-step" data-step="3" style="display: none;">
-                    <h3>Step 2: Define your founder voice</h3>
-                    <p class="helper-text">How do you usually write? Be specific!</p>
-                    <textarea id="onboard-voice" rows="4"
-                        placeholder="Example: I write like an operator founder. I point out hidden bottlenecks, ownership gaps, and execution breakdowns. I keep it short and real."></textarea>
-                    <button class="btn-primary" id="complete-onboarding">Start Founder Mode</button>
+                    <button class="btn-primary" id="complete-onboarding">Start Echo</button>
                 </div>
             </div>
         </main>
