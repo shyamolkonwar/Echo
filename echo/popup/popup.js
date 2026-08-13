@@ -84,6 +84,11 @@ class EchoPopup {
         this.elements.onboardApiKey = document.getElementById('onboard-api-key');
         this.elements.onboardApiEndpoint = document.getElementById('onboard-api-endpoint');
         this.elements.onboardApiModel = document.getElementById('onboard-api-model');
+        this.elements.onboardAccountType = document.getElementById('onboard-account-type');
+        this.elements.onboardProfileIdentity = document.getElementById('onboard-profile-identity');
+        this.elements.onboardProfileNarrative = document.getElementById('onboard-profile-narrative');
+        this.elements.onboardProfileWritingStyle = document.getElementById('onboard-profile-writing-style');
+        this.elements.onboardProfileCommentStrategy = document.getElementById('onboard-profile-comment-strategy');
         this.elements.completeOnboarding = document.getElementById('complete-onboarding');
     }
 
@@ -552,6 +557,17 @@ class EchoPopup {
         const apiFormat = this.elements.onboardApiFormat.value;
         const apiEndpoint = this.elements.onboardApiEndpoint.value.trim();
         const apiModel = this.elements.onboardApiModel.value.trim();
+        const onboardingProfile = {
+            accountType: this.elements.onboardAccountType?.value || 'personal',
+            identity: this.elements.onboardProfileIdentity?.value?.trim() || '',
+            narrative: this.elements.onboardProfileNarrative?.value?.trim() || '',
+            communicationStyle: '',
+            writingStyle: this.elements.onboardProfileWritingStyle?.value?.trim() || '',
+            commentStrategy: this.elements.onboardProfileCommentStrategy?.value?.trim() || '',
+            signaturePhrases: '',
+            bannedPhrases: '',
+            voiceExamples: ''
+        };
 
         if (!apiKey || !apiEndpoint) {
             this.showToast('Add both an API key and complete endpoint URL.', 'error');
@@ -567,17 +583,7 @@ class EchoPopup {
             apiFormat,
             apiEndpoint,
             apiModel,
-            userProfile: {
-                accountType: 'personal',
-                identity: '',
-                narrative: '',
-                communicationStyle: '',
-                writingStyle: '',
-                commentStrategy: '',
-                signaturePhrases: '',
-                bannedPhrases: '',
-                voiceExamples: ''
-            },
+            userProfile: onboardingProfile,
             onboardingComplete: true,
             isActive: true,
             platforms: {
